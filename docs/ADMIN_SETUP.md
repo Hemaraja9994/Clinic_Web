@@ -23,7 +23,7 @@ Roles: **Admin** (everything) · **Audiologist / SLP** (appointments, patients, 
 
 ### 1. Create the database
 1. Cloudflare dashboard → **Storage & Databases → D1 SQL Database → Create**.
-2. Name: `sri-rudra-portal-db`. Location: **Asia-Pacific**. Click **Create**.
+2. Name: `sri-rudra-clinic-web-db`. Location: **Asia-Pacific**. Click **Create**.
 3. Copy the **Database ID** shown on the next page and put it in `wrangler.toml`
    (`database_id = "..."`), or send it to whoever maintains the code.
 4. Open the database → **Console** tab → paste the whole of `docs/d1-console-setup.sql` → **Execute**.
