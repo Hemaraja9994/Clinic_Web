@@ -23,11 +23,12 @@ Roles: **Admin** (everything) · **Audiologist / SLP** (appointments, patients, 
 
 ### 1. Create the database
 1. Cloudflare dashboard → **Storage & Databases → D1 SQL Database → Create**.
-2. Name: `sri-rudra-clinic`. Location: **Asia-Pacific**. Click **Create**.
+2. Name: `sri-rudra-portal-db`. Location: **Asia-Pacific**. Click **Create**.
 3. Copy the **Database ID** shown on the next page and put it in `wrangler.toml`
    (`database_id = "..."`), or send it to whoever maintains the code.
-4. Open the database → **Console** tab → paste the whole of `migrations/0001_init.sql` → **Execute**.
-   This creates the tables.
+4. Open the database → **Console** tab → paste the whole of `docs/d1-console-setup.sql` → **Execute**.
+   This creates the tables. (Use this file, not `migrations/0001_init.sql`: the console joins pasted
+   lines into one, so the comments in the migration file would hide the SQL.)
 
 ### 2. Create the Pages project
 1. **Workers & Pages → Create → Pages → Connect to Git** → choose `hemaraja9994/clinic_web`.
