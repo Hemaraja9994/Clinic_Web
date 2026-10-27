@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* The staff portal uses a fixed light theme so printed and on-screen reports match. */
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: #f8f5f1;
+  color: #2a2420;
+  font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer components {
+  .a-input {
+    @apply min-h-10 w-full rounded-xl border border-clinic-sand bg-white px-3 text-sm text-clinic-ink placeholder:text-clinic-clay focus:border-clinic-maroon focus:outline-none focus:ring-2 focus:ring-clinic-saffron/40 disabled:bg-clinic-parchment disabled:text-clinic-clay;
+  }
+  .a-label {
+    @apply mb-1 block text-xs font-semibold uppercase tracking-wider text-clinic-umber;
+  }
+  .a-btn {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .a-btn-primary {
+    @apply a-btn bg-clinic-maroon text-clinic-ivory hover:bg-clinic-maroonDeep;
+  }
+  .a-btn-secondary {
+    @apply a-btn border border-clinic-sand bg-white text-clinic-maroon hover:border-clinic-maroon;
+  }
+  .a-btn-danger {
+    @apply a-btn border border-red-200 bg-white text-red-700 hover:bg-red-50;
+  }
+  .a-card {
+    @apply rounded-2xl border border-clinic-sand/80 bg-white p-5 shadow-card;
+  }
+  .a-table {
+    @apply w-full text-left text-sm;
+  }
+  .a-table th {
+    @apply border-b border-clinic-sand px-3 py-2 text-xs font-semibold uppercase tracking-wider text-clinic-clay;
+  }
+  .a-table td {
+    @apply border-b border-clinic-sand/60 px-3 py-2 align-top;
+  }
+  .a-cell {
+    @apply h-9 w-full min-w-0 rounded-lg border border-clinic-sand bg-white px-1 text-center text-sm focus:border-clinic-maroon focus:outline-none focus:ring-2 focus:ring-clinic-saffron/40;
+  }
+}
+
+/* Printing a report: only the report sheet is printed, on A4. */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+  body {
+    background: #fff;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .avoid-break {
+    break-inside: avoid;
+  }
+}

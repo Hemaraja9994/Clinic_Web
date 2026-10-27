@@ -1,0 +1,12 @@
+# Cloudflare Pages configuration for the clinic website + admin.
+# See docs/ADMIN_SETUP.md for the one-time setup steps.
+name = "sri-rudra-clinic"
+compatibility_date = "2026-01-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sri-rudra-clinic"
+# Replace with the ID shown after running: npx wrangler d1 create sri-rudra-clinic
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+﻿import React, { createContext, useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Activity,
@@ -460,12 +460,53 @@ function ThemeToggle() {
   );
 }
 
+// Content edited by staff in the admin portal (announcement, timings, service text).
+// If the server is unreachable the built-in text below is used.
+const SiteContentContext = createContext({});
+const useSiteContent = () => useContext(SiteContentContext);
+
+function useRemoteSiteContent() {
+  const [content, setContent] = useState({});
+  useEffect(() => {
+    fetch('/api/public/content')
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data) => setContent(data && typeof data === 'object' ? data : {}))
+      .catch(() => {});
+  }, []);
+  return content;
+}
+
+function hoursLine(content) {
+  const h = content.hours || {};
+  return `Monday to Saturday: ${h.weekdays || '10:00 AM – 9:00 PM'}. Sunday: ${h.sunday || 'Prior-call basis only'}.`;
+}
+
+function toISODate(d) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+function AnnouncementBar() {
+  const { announcement } = useSiteContent();
+  if (!announcement?.active || !(announcement.text || announcement.text_te)) return null;
+  return (
+    <div role="status" className="bg-clinic-saffron px-4 py-2 text-center text-sm font-semibold text-clinic-ink">
+      {announcement.text}
+      {announcement.text && announcement.text_te && <span className="mx-2 opacity-60">•</span>}
+      {announcement.text_te}
+    </div>
+  );
+}
+
 function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState('');
+  const siteContent = useRemoteSiteContent();
 
   return (
+    <SiteContentContext.Provider value={siteContent}>
     <div className="min-h-screen bg-clinic-ivory text-clinic-ink selection:bg-clinic-saffronSoft selection:text-clinic-ink">
+      <AnnouncementBar />
       <Header menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
       <main>
         <ProofTicker />
@@ -490,6 +531,7 @@ function App() {
       <Footer />
       <FloatingWhatsapp />
     </div>
+    </SiteContentContext.Provider>
   );
 }
 
@@ -856,10 +898,13 @@ function CareFlow() {
 }
 
 function Services() {
+  const overrides = useSiteContent().services || {};
   return (
     <Section id="services" eyebrow="Services • సేవలు" title="Four care paths under one roof." description="Hearing testing, hearing aid services, paediatric speech therapy, and adult rehabilitation — each delivered by qualified audiologists and speech-language pathologists.">
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {services.map(({ icon: Icon, title, te, text, image, images }) => (
+        {services.map(({ icon: Icon, title, te, text: defaultText, image, images }) => {
+          const text = overrides[title] || defaultText;
+          return (
           <motion.div key={title} {...fadeUp}>
             <Card className="premium-card group relative h-full overflow-hidden transition duration-300 hover:-translate-y-1 hover:border-clinic-saffron/60 hover:shadow-soft">
               {images && images.length > 1 ? (
@@ -894,7 +939,8 @@ function Services() {
               <CardContent className="relative px-7 pb-7 text-[15px] leading-7 text-clinic-umber transition duration-300 group-hover:text-clinic-ivory/82">{text}</CardContent>
             </Card>
           </motion.div>
-        ))}
+          );
+        })}
       </div>
     </Section>
   );
@@ -1316,8 +1362,10 @@ function Booking({ selectedSlot, setSelectedSlot }) {
     phone: '',
     service: 'Diagnostic Audiology',
     concern: '',
+    website: '', // hidden anti-spam field; real visitors leave it empty
   });
   const [errors, setErrors] = useState({});
+  const siteContent = useSiteContent();
 
   // Keep the human-readable slot label in sync with date + time.
   useEffect(() => {
@@ -1372,6 +1420,22 @@ function Booking({ selectedSlot, setSelectedSlot }) {
       .join('\n');
     const url = `https://wa.me/${primaryWhatsappNumber}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank', 'noopener,noreferrer');
+    // Also save the request to the staff portal. WhatsApp stays the main channel, so failures are ignored.
+    fetch('/api/public/appointments', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        name: form.name,
+        age: form.age,
+        phone: form.phone,
+        service: form.service,
+        concern: form.concern,
+        date: toISODate(selectedDate),
+        time: isSunday ? null : selectedTime,
+        website: form.website,
+      }),
+    }).catch(() => {});
   };
 
   const callBackHref = `tel:${clinicPhone}`;
@@ -1396,9 +1460,10 @@ function Booking({ selectedSlot, setSelectedSlot }) {
           <p className="mt-2 text-sm text-clinic-saffronSoft/80">
             {isSunday ? 'Sunday — final time on call' : `Duration: ${slotDuration}`}
           </p>
-          <p className="mt-4 leading-7 text-clinic-ivory/72">Monday to Saturday: 10:00 AM – 9:00 PM. Sunday: prior-call basis only.</p>
+          <p className="mt-4 leading-7 text-clinic-ivory/72">{hoursLine(siteContent)}</p>
 
           <form onSubmit={handleSubmit} className="mt-8 grid gap-4">
+            <input type="text" name="website" value={form.website} onChange={updateField('website')} tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" />
             <div>
               <label className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-saffronSoft">Patient name *</label>
               <input className={`mt-2 ${inputClass}`} type="text" value={form.name} onChange={updateField('name')} placeholder="Full name" />
@@ -1550,12 +1615,13 @@ function FAQ() {
 }
 
 function Contact() {
+  const siteContent = useSiteContent();
   const contactRows = [
     [Phone, `Clinic calls: ${clinicPhones.join(' / ')}`],
     [MessageCircle, `WhatsApp: +${whatsappNumbers.join(' / +')}`],
     [Mail, email],
     [MapPin, `${address}\n${addressTe}`],
-    [Clock3, 'Monday to Saturday: 10:00 AM – 9:00 PM. Sunday: Prior-call basis only.'],
+    [Clock3, hoursLine(siteContent)],
   ];
 
   return (
@@ -1618,6 +1684,7 @@ function Kicker({ children }) {
 }
 
 function Footer() {
+  const { hours = {} } = useSiteContent();
   return (
     <footer className="bg-clinic-maroonDeep py-14 text-clinic-ivory">
       <div className="section-shell grid gap-10 md:grid-cols-[1fr_auto]">
@@ -1634,8 +1701,8 @@ function Footer() {
           <div className="mt-5 grid gap-2 text-sm text-clinic-ivory/70">
             <p><span className="font-semibold text-clinic-saffronSoft">Call / WhatsApp:</span> {clinicPhones.join(' • ')}</p>
             <p><span className="font-semibold text-clinic-saffronSoft">Email:</span> {email}</p>
-            <p><span className="font-semibold text-clinic-saffronSoft">Hours:</span> Mon–Sat 10:00 AM – 9:00 PM • Sunday on prior call</p>
-            <p className="text-clinic-ivory/55">సోమ – శని: ఉ. 10 నుండి రా. 9 వరకు • ఆదివారం ముందస్తు కాల్‌తో</p>
+            <p><span className="font-semibold text-clinic-saffronSoft">Hours:</span> Mon–Sat {hours.weekdays || '10:00 AM – 9:00 PM'} • Sunday {hours.sunday || 'on prior call'}</p>
+            <p className="text-clinic-ivory/55">{hours.te || 'సోమ – శని: ఉ. 10 నుండి రా. 9 వరకు • ఆదివారం ముందస్తు కాల్‌తో'}</p>
           </div>
         </div>
         <div>
@@ -1650,6 +1717,10 @@ function Footer() {
             <a href="#resources" className="inline-flex items-center gap-2 text-sm text-clinic-ivory/70 hover:text-clinic-ivory">
               <ChevronRight className="h-4 w-4 text-clinic-saffron" />
               Privacy Policy
+            </a>
+            <a href="/admin/" rel="nofollow" className="inline-flex items-center gap-2 text-sm text-clinic-ivory/70 hover:text-clinic-ivory">
+              <ChevronRight className="h-4 w-4 text-clinic-saffron" />
+              Staff login
             </a>
           </div>
         </div>

@@ -7,6 +7,7 @@ dist/
 *.err.log
 .env
 .env.*
+.dev.vars
 
 # Local/raw assets kept outside the deployable Vite app.
 /*.jpg
