@@ -111,7 +111,34 @@ async function publicContent({ db }) {
   return json(content, 200, { 'cache-control': 'public, max-age=60' });
 }
 
-async function publicBooking({ db, request }) {
+// Website bookings go into the clinic's main staff portal (admin.srirudraspeechandhearing.com),
+// which reads the D1 database bound as PORTAL_DB. Insert-only: this code never updates or deletes there.
+const PORTAL_CLINIC_ID = 5; // "Sri Rudra · MVP Double Road" in the portal's clinics table
+const PORTAL_SERVICE = {
+  'Diagnostic Audiology': 'audio',
+  'Audiology Facilities': 'audio',
+  'Hearing Aid Services': 'aid',
+  'Pediatric Speech Therapy': 'ped',
+  'Adult Rehabilitation': 'adult',
+  'Speech-Language Pathology': 'adult',
+};
+
+// "10:00 AM" / "4:30 PM" / "16:30" -> "HH:MM" (24h), or null if it can't be read.
+function to24h(value) {
+  const m = /^\s*(\d{1,2}):(\d{2})\s*([AaPp][Mm])?\s*$/.exec(String(value || ''));
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2]);
+  if (m[3]) {
+    const pm = m[3].toLowerCase() === 'pm';
+    if (h === 12) h = pm ? 12 : 0;
+    else if (pm) h += 12;
+  }
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(min).padStart(2, '0')}`;
+}
+
+async function publicBooking({ db, env, request }) {
   const body = await readJson(request);
   if (body.website) return json({ ok: true }, 201); // honeypot field filled → likely a bot; pretend success
   const ip = clientIp(request);
@@ -119,10 +146,35 @@ async function publicBooking({ db, request }) {
   const phone = required(body.phone, 'Phone', 20);
   if (!/^[0-9+\-\s]{10,15}$/.test(phone)) throw new HttpError(400, 'Enter a valid phone number.');
   if (!isDate(body.date)) throw new HttpError(400, 'Pick a valid date.');
+  if (!env.PORTAL_DB) throw new HttpError(500, 'Booking database is not connected.');
   await recordAttempt(db, `book:${ip}`);
-  const result = await db.prepare(
-    'INSERT INTO appointments (name, age, phone, service, concern, date, time, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-  ).bind(required(body.name, 'Name', 120), text(body.age, 20), phone, text(body.service, 120), text(body.concern, 1000), body.date, text(body.time, 20), 'website').run();
+
+  const name = required(body.name, 'Name', 120);
+  const age = text(body.age, 20);
+  const service = text(body.service, 120);
+  const concern = text(body.concern, 1000);
+  const rawTime = text(body.time, 20);
+  const time = to24h(rawTime);
+  const notes = [
+    'Website booking request - please call to confirm.',
+    service ? `Service: ${service}` : null,
+    age ? `Age: ${age}` : null,
+    time ? null : 'Preferred time: not given (please confirm on call)',
+    concern ? `Concern: ${concern}` : null,
+  ].filter(Boolean).join(' | ');
+
+  // Source of truth: the main portal's appointments table.
+  const result = await env.PORTAL_DB.prepare(
+    "INSERT INTO appointments (clinic_id, scheduled_for, patient_name, patient_phone, service, duration_min, status, notes) VALUES (?, ?, ?, ?, ?, 45, 'scheduled', ?)",
+  ).bind(PORTAL_CLINIC_ID, `${body.date}T${time || '10:00'}`, name, phone, PORTAL_SERVICE[service] || 'other', notes).run();
+
+  // Secondary copy in this site's own database (best effort; failures don't affect the booking).
+  try {
+    await db.prepare(
+      'INSERT INTO appointments (name, age, phone, service, concern, date, time, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    ).bind(name, age, phone, service, concern, body.date, rawTime, 'website').run();
+  } catch {}
+
   return json({ ok: true, id: result.meta.last_row_id }, 201);
 }
 
