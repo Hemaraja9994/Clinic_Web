@@ -1,0 +1,12 @@
+# Cloudflare Pages configuration for the clinic website + admin.
+# See docs/ADMIN_SETUP.md for the one-time setup steps.
+name = "sri-rudra-clinic"
+compatibility_date = "2026-01-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sri-rudra-portal-db"
+# D1 database "sri-rudra-portal-db" in the clinic Cloudflare account.
+database_id = "81888080-d782-4f47-adab-a26b68afb6ba"
+migrations_dir = "migrations"
