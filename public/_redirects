@@ -1,0 +1,32 @@
+# The staff portal lives at admin.srirudraspeechandhearing.com.
+# Old staff bookmarks on the main domain are forwarded there.
+# 302 (temporary) so browsers don't cache the forward forever.
+
+/login                https://admin.srirudraspeechandhearing.com/login                302
+/forgot-password      https://admin.srirudraspeechandhearing.com/forgot-password      302
+/admin                https://admin.srirudraspeechandhearing.com/login                302
+/admin/*              https://admin.srirudraspeechandhearing.com/login                302
+/dashboard            https://admin.srirudraspeechandhearing.com/dashboard            302
+/dashboard/*          https://admin.srirudraspeechandhearing.com/dashboard/:splat     302
+/appointments         https://admin.srirudraspeechandhearing.com/appointments         302
+/appointments/*       https://admin.srirudraspeechandhearing.com/appointments/:splat  302
+/attendance           https://admin.srirudraspeechandhearing.com/attendance           302
+/attendance/*         https://admin.srirudraspeechandhearing.com/attendance/:splat    302
+/brands               https://admin.srirudraspeechandhearing.com/brands               302
+/brands/*             https://admin.srirudraspeechandhearing.com/brands/:splat        302
+/clinics              https://admin.srirudraspeechandhearing.com/clinics              302
+/clinics/*            https://admin.srirudraspeechandhearing.com/clinics/:splat       302
+/collections          https://admin.srirudraspeechandhearing.com/collections          302
+/collections/*        https://admin.srirudraspeechandhearing.com/collections/:splat   302
+/expenses             https://admin.srirudraspeechandhearing.com/expenses             302
+/expenses/*           https://admin.srirudraspeechandhearing.com/expenses/:splat      302
+/orders               https://admin.srirudraspeechandhearing.com/orders               302
+/orders/*             https://admin.srirudraspeechandhearing.com/orders/:splat        302
+/reports              https://admin.srirudraspeechandhearing.com/reports              302
+/reports/*            https://admin.srirudraspeechandhearing.com/reports/:splat       302
+/sales                https://admin.srirudraspeechandhearing.com/sales                302
+/sales/*              https://admin.srirudraspeechandhearing.com/sales/:splat         302
+/settings             https://admin.srirudraspeechandhearing.com/settings             302
+/settings/*           https://admin.srirudraspeechandhearing.com/settings/:splat      302
+/trials               https://admin.srirudraspeechandhearing.com/trials               302
+/trials/*             https://admin.srirudraspeechandhearing.com/trials/:splat        302
