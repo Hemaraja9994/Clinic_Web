@@ -7,6 +7,6 @@ pages_build_output_dir = "dist"
 [[d1_databases]]
 binding = "DB"
 database_name = "sri-rudra-clinic"
-# Replace with the ID shown after running: npx wrangler d1 create sri-rudra-clinic
-database_id = "00000000-0000-0000-0000-000000000000"
+# D1 database "sri-rudra-clinic" in the clinic Cloudflare account.
+database_id = "81888080-d782-4f47-adab-a26b68afb6ba"
 migrations_dir = "migrations"
