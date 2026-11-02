@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { MotionConfig, motion } from 'motion/react';
 import { Banknote, CalendarCheck, ClipboardList, Globe, LayoutDashboard, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react';
 
 import { api } from './api.js';
@@ -82,8 +83,15 @@ export default function AdminApp() {
     refresh();
   }, []);
 
-  if (state.loading) return <p className="p-10 text-center text-clinic-clay">Loading…</p>;
-  if (!state.user) return state.needsSetup ? <Setup onDone={refresh} /> : <Login onDone={refresh} />;
+  if (state.loading) return <p className="p-10 text-center text-lg text-clinic-clay">Loading…</p>;
+  if (!state.user) {
+    const screen = state.needsSetup ? <Setup onDone={refresh} /> : <Login onDone={refresh} />;
+    return (
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        {screen}
+      </motion.div>
+    );
+  }
 
   const user = state.user;
   const isPrint = /\/print$/.test(route);
@@ -112,11 +120,11 @@ function Shell({ user, route, onLogout, children }) {
           key={path}
           href={`#${path}`}
           onClick={() => setOpen(false)}
-          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+          className={`flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium transition ${
             active(path) ? 'bg-clinic-ivory text-clinic-maroon' : 'text-clinic-ivory/80 hover:bg-white/10 hover:text-clinic-ivory'
           }`}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-5 w-5" />
           {label}
         </a>
       ))}
@@ -144,7 +152,16 @@ function Shell({ user, route, onLogout, children }) {
         </div>
       )}
 
-      <main className="min-w-0 px-4 py-6 sm:px-8 sm:py-8">{children}</main>
+      <main className="min-w-0 px-4 py-6 sm:px-8 sm:py-8">
+        <motion.div
+          key={route}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {children}
+        </motion.div>
+      </main>
     </div>
   );
 }
@@ -154,8 +171,8 @@ function Brand() {
     <a href="#/" className="flex items-center gap-3">
       <img src="/clinic-logo-mobile.png" alt="" className="h-10 w-10 rounded-xl bg-clinic-ivory object-contain p-1" />
       <div className="leading-tight">
-        <p className="text-sm font-semibold">Sri Rudra Clinic</p>
-        <p className="text-xs text-clinic-saffronSoft/80">Staff portal</p>
+        <p className="text-base font-semibold">Sri Rudra Clinic</p>
+        <p className="text-sm text-clinic-saffronSoft/80">Staff portal</p>
       </div>
     </a>
   );
@@ -163,9 +180,9 @@ function Brand() {
 
 function UserBox({ user, onLogout }) {
   return (
-    <div className="rounded-xl bg-white/5 p-3 text-sm">
+    <div className="rounded-xl bg-white/5 p-3 text-base">
       <p className="font-semibold">{user.full_name}</p>
-      <p className="text-xs text-clinic-saffronSoft/80">{ROLE_LABEL[user.role]}</p>
+      <p className="text-sm text-clinic-saffronSoft/80">{ROLE_LABEL[user.role]}</p>
       <div className="mt-3 flex gap-2">
         <ChangePasswordButton />
         <a href="/desk.html" className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-clinic-ivory/80 hover:bg-white/10">Offline desk</a>
@@ -228,7 +245,7 @@ function AuthCard({ title, subtitle, children }) {
             <p className="text-xs text-clinic-clay">Staff portal</p>
           </div>
         </div>
-        <h1 className="mt-6 font-heading text-2xl font-semibold text-clinic-ink">{title}</h1>
+        <h1 className="mt-6 font-heading text-3xl font-semibold text-clinic-ink">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-clinic-clay">{subtitle}</p>}
         <div className="mt-6">{children}</div>
       </div>
