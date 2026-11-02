@@ -5,6 +5,7 @@ import { api, formatDate, todayISO } from '../api.js';
 import { timeKey } from '../constants.js';
 import { Alert, PageHeader, StatusBadge } from '../components/ui.jsx';
 import { useUser } from '../session.js';
+import DayNote from './DayNote.jsx';
 
 export default function Dashboard() {
   const user = useUser();
@@ -27,6 +28,8 @@ export default function Dashboard() {
         <Stat icon={ClipboardList} label="Registered patients" value={data?.patientCount ?? '–'} href="#/patients" />
         <Stat icon={FileText} label="Reports this month" value={data?.reportsThisMonth ?? '–'} href="#/patients" />
       </div>
+
+      <DayNote />
 
       <section className="a-card mt-6">
         <h2 className="font-heading text-xl font-semibold text-clinic-maroon">Today's schedule</h2>

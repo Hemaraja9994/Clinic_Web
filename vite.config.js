@@ -11,6 +11,7 @@ export default defineConfig({
       input: {
         main: path.resolve(process.cwd(), 'index.html'),
         admin: path.resolve(process.cwd(), 'admin/index.html'),
+        desk: path.resolve(process.cwd(), 'desk.html'),
       },
     },
   },

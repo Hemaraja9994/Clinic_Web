@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarCheck, ClipboardList, Globe, LayoutDashboard, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react';
+import { Banknote, CalendarCheck, ClipboardList, Globe, LayoutDashboard, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react';
 
 import { api } from './api.js';
 import { Alert, Field, Input } from './components/ui.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Appointments from './pages/Appointments.jsx';
+import Collections from './pages/Collections.jsx';
 import Patients from './pages/Patients.jsx';
 import PatientDetail from './pages/PatientDetail.jsx';
 import ReportEditor from './pages/ReportEditor.jsx';
@@ -31,6 +32,7 @@ function useHashRoute() {
 const NAV = [
   ['/', 'Dashboard', LayoutDashboard, ['admin', 'therapist', 'reception']],
   ['/appointments', 'Appointments', CalendarCheck, ['admin', 'therapist', 'reception']],
+  ['/collections', 'Collections', Banknote, ['admin', 'therapist', 'reception']],
   ['/patients', 'Patients', ClipboardList, ['admin', 'therapist', 'reception']],
   ['/content', 'Website content', Globe, ['admin']],
   ['/staff', 'Staff & audit log', UsersRound, ['admin']],
@@ -42,6 +44,7 @@ function matchPage(route, user) {
   let m;
   if (route === '/') return <Dashboard />;
   if (route === '/appointments') return <Appointments />;
+  if (route === '/collections') return <Collections />;
   if (route === '/patients') return <Patients />;
   if ((m = route.match(/^\/patients\/(\d+)$/))) return <PatientDetail id={m[1]} />;
   if (user.role !== 'reception') {
@@ -165,6 +168,7 @@ function UserBox({ user, onLogout }) {
       <p className="text-xs text-clinic-saffronSoft/80">{ROLE_LABEL[user.role]}</p>
       <div className="mt-3 flex gap-2">
         <ChangePasswordButton />
+        <a href="/desk.html" className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-clinic-ivory/80 hover:bg-white/10">Offline desk</a>
         <button type="button" onClick={onLogout} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-clinic-ivory/80 hover:bg-white/10">
           <LogOut className="h-3.5 w-3.5" /> Log out
         </button>
@@ -236,6 +240,9 @@ function Login({ onDone }) {
   const [form, setForm] = useState({ username: '', password: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Stay read-only until the person focuses a box, so the browser does not
+  // put the last username and password back after they sign out.
+  const [armed, setArmed] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -253,9 +260,29 @@ function Login({ onDone }) {
 
   return (
     <AuthCard title="Staff login" subtitle="For clinic staff only. Patient information is confidential.">
-      <form onSubmit={submit} className="grid gap-4">
-        <Field label="Username"><Input value={form.username} onChange={(v) => setForm({ ...form, username: v })} autoComplete="username" autoFocus /></Field>
-        <Field label="Password"><Input type="password" value={form.password} onChange={(v) => setForm({ ...form, password: v })} autoComplete="current-password" /></Field>
+      <form onSubmit={submit} autoComplete="off" className="grid gap-4">
+        <Field label="Username">
+          <Input
+            name="sr-staff-user"
+            value={form.username}
+            onChange={(v) => setForm({ ...form, username: v })}
+            autoComplete="off"
+            autoCapitalize="none"
+            readOnly={!armed}
+            onFocus={(event) => { event.currentTarget.readOnly = false; setArmed(true); }}
+          />
+        </Field>
+        <Field label="Password">
+          <Input
+            name="sr-staff-secret"
+            type="password"
+            value={form.password}
+            onChange={(v) => setForm({ ...form, password: v })}
+            autoComplete="new-password"
+            readOnly={!armed}
+            onFocus={(event) => { event.currentTarget.readOnly = false; setArmed(true); }}
+          />
+        </Field>
         <Alert>{error}</Alert>
         <button type="submit" className="a-btn-primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
         <a href="/" className="text-center text-xs text-clinic-clay hover:text-clinic-maroon">← Back to clinic website</a>

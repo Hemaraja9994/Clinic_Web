@@ -16,6 +16,7 @@ import {
   requireRole,
   verifyPassword,
 } from './auth.js';
+import { filterCollections, normalizeCollection, slugClinicId } from '../src/shared/collectionCatalog.js';
 import { HttpError, clientIp, isDate, json, readJson, required, text } from './http.js';
 
 const ALL_STAFF = ['admin', 'therapist', 'reception'];
@@ -502,6 +503,153 @@ async function listAudit({ db, user }) {
   return json({ entries: results });
 }
 
+// ---------- collections ----------
+
+function readCollection(body) {
+  try {
+    return normalizeCollection(body);
+  } catch (err) {
+    throw new HttpError(400, err.message);
+  }
+}
+
+function toPaise(amount) {
+  return Math.round(Number(amount) * 100);
+}
+
+function publicCollection(row) {
+  return {
+    id: row.id,
+    clinic_id: row.clinic_id,
+    clinic_name: row.clinic_name || '',
+    collection_date: row.collection_date,
+    category: row.category,
+    amount: row.amount_paise / 100,
+    method: row.method,
+    phone: row.phone || '',
+    reference: row.reference || '',
+    notes: row.notes || '',
+  };
+}
+
+async function assertClinic(db, clinicId) {
+  const clinic = await db.prepare('SELECT id FROM clinics WHERE id = ?').bind(clinicId).first();
+  if (!clinic) throw new HttpError(400, 'Choose a clinic.');
+}
+
+async function listClinics({ db, user }) {
+  requireRole(user, ...ALL_STAFF);
+  const { results } = await db.prepare('SELECT * FROM clinics ORDER BY name').all();
+  return json({ clinics: results });
+}
+
+async function createClinic({ db, user, request }) {
+  requireRole(user, ...ALL_STAFF);
+  const body = await readJson(request);
+  const name = required(body.name, 'Clinic name', 120);
+  let id = slugClinicId(name);
+  const taken = await db.prepare('SELECT id FROM clinics WHERE id = ?').bind(id).first();
+  if (taken) id = `${id}-${Date.now().toString(36)}`.slice(0, 48);
+  await db.prepare(
+    'INSERT INTO clinics (id, name, group_name, city, phone, address) VALUES (?, ?, ?, ?, ?, ?)',
+  ).bind(id, name, text(body.group_name, 120), text(body.city, 80), text(body.phone, 20), text(body.address, 400)).run();
+  await audit(db, user, 'clinic.create', 'clinic', null, name);
+  return json({ id }, 201);
+}
+
+async function listCollections({ db, user, url }) {
+  requireRole(user, ...ALL_STAFF);
+  const { results } = await db.prepare(
+    `SELECT c.*, cl.name AS clinic_name
+     FROM collections c LEFT JOIN clinics cl ON cl.id = c.clinic_id
+     ORDER BY c.collection_date DESC, c.id DESC LIMIT 1000`,
+  ).all();
+  const collections = filterCollections(results.map(publicCollection), {
+    from: url.searchParams.get('from') || '',
+    to: url.searchParams.get('to') || '',
+    clinicId: url.searchParams.get('clinic_id') || '',
+    category: url.searchParams.get('category') || '',
+    method: url.searchParams.get('method') || '',
+    q: url.searchParams.get('q') || '',
+  });
+  return json({ collections });
+}
+
+async function createCollections({ db, user, request }) {
+  requireRole(user, ...ALL_STAFF);
+  const body = await readJson(request);
+  const rows = Array.isArray(body.rows) ? body.rows : [body];
+  if (!rows.length || rows.length > 20) throw new HttpError(400, 'Record between 1 and 20 services at a time.');
+  const ids = [];
+  for (const raw of rows) {
+    const row = readCollection(raw);
+    await assertClinic(db, row.clinic_id);
+    const result = await db.prepare(
+      `INSERT INTO collections (clinic_id, collection_date, category, amount_paise, method, phone, reference, notes, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      row.clinic_id,
+      row.collection_date,
+      row.category,
+      toPaise(row.amount),
+      row.method,
+      row.phone || null,
+      row.reference || null,
+      row.notes || null,
+      user.id,
+    ).run();
+    ids.push(result.meta.last_row_id);
+    await audit(db, user, 'collection.create', 'collection', result.meta.last_row_id, row.category);
+  }
+  return json({ ids }, 201);
+}
+
+async function updateCollection({ db, user, request, params }) {
+  requireRole(user, ...ALL_STAFF);
+  const current = await db.prepare('SELECT * FROM collections WHERE id = ?').bind(params.id).first();
+  if (!current) throw new HttpError(404, 'Collection not found.');
+  const row = readCollection({ ...publicCollection(current), ...(await readJson(request)) });
+  await assertClinic(db, row.clinic_id);
+  await db.prepare(
+    `UPDATE collections
+     SET clinic_id = ?, collection_date = ?, category = ?, amount_paise = ?, method = ?, phone = ?, reference = ?, notes = ?
+     WHERE id = ?`,
+  ).bind(row.clinic_id, row.collection_date, row.category, toPaise(row.amount), row.method, row.phone || null, row.reference || null, row.notes || null, params.id).run();
+  await audit(db, user, 'collection.update', 'collection', Number(params.id), row.category);
+  return json({ ok: true });
+}
+
+async function deleteCollection({ db, user, params }) {
+  requireRole(user, 'admin');
+  const current = await db.prepare('SELECT id FROM collections WHERE id = ?').bind(params.id).first();
+  if (!current) throw new HttpError(404, 'Collection not found.');
+  await db.prepare('DELETE FROM collections WHERE id = ?').bind(params.id).run();
+  await audit(db, user, 'collection.delete', 'collection', Number(params.id));
+  return json({ ok: true });
+}
+
+async function dashboardNote({ db, user, url }) {
+  requireRole(user, ...ALL_STAFF);
+  const date = url.searchParams.get('date') || new Date().toISOString().slice(0, 10);
+  if (!isDate(date)) throw new HttpError(400, 'Pick a valid date.');
+  const row = await db.prepare('SELECT body, updated_at FROM dashboard_notes WHERE note_date = ?').bind(date).first();
+  return json({ date, body: row?.body || '', updated_at: row?.updated_at || null });
+}
+
+async function saveDashboardNote({ db, user, request }) {
+  requireRole(user, ...ALL_STAFF);
+  const body = await readJson(request);
+  if (!isDate(body.date)) throw new HttpError(400, 'Pick a valid date.');
+  const note = text(body.body, 2000) || '';
+  await db.prepare(
+    `INSERT INTO dashboard_notes (note_date, body, updated_by, updated_at)
+     VALUES (?, ?, ?, datetime('now'))
+     ON CONFLICT(note_date) DO UPDATE SET body = excluded.body, updated_by = excluded.updated_by, updated_at = datetime('now')`,
+  ).bind(body.date, note, user.id).run();
+  await audit(db, user, 'dashboard.note', 'dashboard_note', null, body.date);
+  return json({ ok: true });
+}
+
 // ---------- routing ----------
 
 const routes = [
@@ -514,6 +662,14 @@ const routes = [
   ['GET', '/api/public/content', publicContent],
   ['POST', '/api/public/appointments', publicBooking],
   ['GET', '/api/dashboard', dashboard],
+  ['GET', '/api/dashboard-note', dashboardNote],
+  ['PUT', '/api/dashboard-note', saveDashboardNote],
+  ['GET', '/api/clinics', listClinics],
+  ['POST', '/api/clinics', createClinic],
+  ['GET', '/api/collections', listCollections],
+  ['POST', '/api/collections', createCollections],
+  ['PATCH', '/api/collections/:id', updateCollection],
+  ['DELETE', '/api/collections/:id', deleteCollection],
   ['GET', '/api/appointments', listAppointments],
   ['POST', '/api/appointments', createAppointment],
   ['PATCH', '/api/appointments/:id', updateAppointment],
