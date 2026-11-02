@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useEffect, useState } from 'react';
+﻿import { createContext, useContext, useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import {
   Activity,
@@ -35,6 +35,7 @@ import {
   X,
 } from 'lucide-react';
 
+import { PaperVisit, ShareClinic } from '@/site/VisitStudio.jsx';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -345,72 +346,6 @@ const fadeUp = {
   transition: { duration: 0.68, ease },
 };
 
-function NameReveal() {
-  const ref = React.useRef(null);
-  const [reduced, setReduced] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReduced(mq.matches);
-    update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
-
-  const enSize = 'clamp(2.2rem, 1.2rem + 3.8vw, 5.0rem)';
-  const teSize = 'clamp(1.2rem, 0.75rem + 2.0vw, 2.8rem)';
-
-  if (reduced) {
-    return (
-      <div className="min-w-0">
-        <p className="font-heading font-semibold leading-[0.98] text-clinic-ink" style={{ fontSize: enSize }}>
-          <span className="block">Sri Rudra</span>
-          <span className="block">Speech &amp; Hearing Clinic</span>
-        </p>
-        <p className="mt-3 font-heading font-medium leading-[1.15] text-clinic-maroon" style={{ fontSize: teSize, letterSpacing: '0.005em' }}>
-          <span className="block">శ్రీ రుద్ర</span>
-          <span className="block">స్పీచ్ &amp; హియరింగ్ క్లినిక్</span>
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={ref} className="language-cycle min-w-0">
-      <motion.p
-        lang="en"
-        initial={{ opacity: 0, y: 18, letterSpacing: '0.04em' }}
-        animate={{ opacity: 1, y: 0, letterSpacing: '0em' }}
-        transition={{ duration: 1.4, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
-        className="language-cycle-en font-heading font-semibold leading-[1.02]"
-        style={{ fontSize: enSize }}
-      >
-        <span className="block">Sri Rudra</span>
-        <span className="block">Speech &amp; Hearing Clinic</span>
-      </motion.p>
-
-      <div className="relative mt-3" style={{ minHeight: teSize }}>
-        <motion.p
-          lang="te"
-          initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1.15, ease: [0.22, 1, 0.36, 1], delay: 0.75 }}
-          className="language-cycle-te relative font-heading font-medium leading-[1.18]"
-          style={{
-            fontSize: teSize,
-            letterSpacing: '0.005em',
-            transformOrigin: '0% 100%',
-          }}
-        >
-          <span className="block">శ్రీ రుద్ర</span>
-          <span className="block">స్పీచ్ &amp; హియరింగ్ క్లినిక్</span>
-        </motion.p>
-      </div>
-    </div>
-  );
-}
-
 function useTheme() {
   const [theme, setTheme] = useState(() => {
     if (typeof window === 'undefined') return 'system';
@@ -509,9 +444,7 @@ function App() {
       <AnnouncementBar />
       <Header menuOpen={menuOpen} setMenuOpen={setMenuOpen} />
       <main>
-        <ProofTicker />
         <Hero />
-        <HeroPhotoReward />
         <InfoTicker />
         <CareFlow />
         <Services />
@@ -536,106 +469,55 @@ function App() {
 }
 
 function Header({ menuOpen, setMenuOpen }) {
-  const navButtonIcons = [Activity, Headphones, PlayCircle, ClipboardCheck, UsersRound, Image, CalendarCheck, Phone];
-  const navButtonSubtitles = ['Start', 'Care paths', 'OT + speech', 'Clinical suite', 'Visit flow', 'Clinic views', 'Slots', 'Reach us'];
-
   return (
-    <header className="sticky top-0 z-50 border-b border-clinic-maroon/10 bg-clinic-porcelain/96 shadow-[0_22px_60px_-42px_rgba(107,31,42,0.65)] backdrop-blur-xl">
-      <nav className="section-shell py-3">
-        <div className="flex min-h-16 items-center justify-between gap-4">
-          <a href="#home" className="flex min-w-0 items-center gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-clinic-sand bg-clinic-porcelain p-1 shadow-card sm:h-16 sm:w-16">
-              <img src={logoImage} alt="Sri Rudra Speech & Hearing Clinic logo" className="h-full w-full rounded-xl object-contain" decoding="async" fetchPriority="high" />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-lg font-semibold text-clinic-ink sm:text-2xl">{clinicName}</span>
-              <span className="block truncate text-sm font-medium text-clinic-clay sm:text-base">{clinicNameTe}</span>
-            </span>
-          </a>
+    <header className="sticky top-0 z-50 border-b border-clinic-sand/80 bg-clinic-porcelain/88 shadow-[0_12px_40px_-32px_rgba(74,41,27,0.45)] backdrop-blur-xl">
+      <nav className="section-shell flex min-h-[4.25rem] items-center justify-between gap-3 py-2">
+        <a href="#home" className="flex min-w-0 items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-clinic-sand bg-clinic-porcelain p-0.5">
+            <img src={logoImage} alt="" className="h-full w-full rounded-lg object-contain" decoding="async" />
+          </span>
+          <span className="min-w-0 leading-tight">
+            <span className="block text-sm font-semibold text-clinic-ink">Sri Rudra</span>
+            <span className="block text-[11px] text-clinic-clay">Speech &amp; Hearing</span>
+          </span>
+        </a>
 
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <a
-              href={`https://wa.me/${primaryWhatsappNumber}?text=${whatsappMessage}`}
-              target="_blank"
-              rel="noreferrer"
-              className="hidden min-h-11 items-center gap-2 rounded-full bg-clinic-maroon px-5 text-sm font-semibold text-clinic-ivory shadow-card transition duration-300 hover:bg-clinic-maroonDeep xl:inline-flex"
-            >
-              <MessageCircle className="h-4 w-4" />
-              Book Appointment
+        <div className="hidden items-center gap-0.5 lg:flex">
+          {navLinks.map(([label, href]) => (
+            <a key={href} href={href} className="rounded-full px-2.5 py-2 text-[13px] font-semibold text-clinic-umber transition hover:bg-clinic-parchment hover:text-clinic-maroon">
+              {label}
             </a>
-            <button
-              type="button"
-              onClick={() => setMenuOpen((value) => !value)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-clinic-sand bg-clinic-porcelain text-clinic-rudraksha shadow-sm xl:hidden"
-              aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation'}
-            >
-              {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </button>
-          </div>
+          ))}
         </div>
 
-        <div className="mt-3 hidden rounded-[1.6rem] border border-clinic-ivory/20 bg-clinic-maroonDeep p-2 shadow-soft ring-1 ring-clinic-maroon/20 xl:grid xl:grid-cols-8 xl:gap-2">
-          {navLinks.map(([label, href], index) => {
-            const Icon = navButtonIcons[index];
-            const subtitle = navButtonSubtitles[index];
-            return (
-              <a
-                key={href}
-                href={href}
-                className="group relative isolate min-h-[4.85rem] overflow-hidden rounded-[1.2rem] border border-clinic-ivory/12 bg-[linear-gradient(135deg,rgba(107,31,42,1),rgba(78,20,28,1)_58%,rgba(62,39,21,0.92))] px-3.5 py-3 text-clinic-ivory shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_16px_34px_-28px_rgba(0,0,0,0.9)] transition duration-300 hover:-translate-y-1 hover:border-clinic-saffron/80 hover:shadow-[0_18px_44px_-24px_rgba(107,31,42,0.65)]"
-              >
-                <span className="absolute inset-x-3 top-0 h-px bg-gradient-to-r from-transparent via-clinic-saffron/90 to-transparent" aria-hidden="true" />
-                <span className="absolute -right-6 -top-8 h-20 w-20 rounded-full bg-clinic-saffron/10 blur-2xl transition group-hover:bg-clinic-saffron/22" aria-hidden="true" />
-                <span className="relative flex items-center gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-clinic-ivory/10 text-clinic-saffronSoft ring-1 ring-clinic-ivory/14 transition group-hover:bg-clinic-saffronSoft group-hover:text-clinic-maroon">
-                    <Icon className="h-4 w-4" strokeWidth={1.7} />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[13px] font-bold leading-tight">{label}</span>
-                    <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.16em] text-clinic-ivory/48 group-hover:text-clinic-saffronSoft">{subtitle}</span>
-                  </span>
-                </span>
-                <span className="absolute bottom-3 right-3 flex h-6 w-6 items-center justify-center rounded-full bg-clinic-ivory/8 text-clinic-saffronSoft transition group-hover:translate-x-0.5 group-hover:bg-clinic-saffronSoft group-hover:text-clinic-maroon" aria-hidden="true">
-                  <ArrowRight className="h-3 w-3" />
-                </span>
-              </a>
-            );
-          })}
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <a href="#booking" className="hidden min-h-10 items-center gap-2 rounded-full bg-clinic-maroon px-4 text-sm font-semibold text-clinic-ivory shadow-sm transition hover:bg-clinic-maroonDeep sm:inline-flex">
+            Plan a visit
+          </a>
+          <button
+            type="button"
+            onClick={() => setMenuOpen((value) => !value)}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-clinic-sand bg-clinic-porcelain text-clinic-rudraksha lg:hidden"
+            aria-label={menuOpen ? 'Close navigation menu' : 'Open navigation'}
+          >
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </nav>
       {menuOpen && (
-        <div className="border-t border-clinic-maroon/10 bg-clinic-maroonDeep xl:hidden">
-          <div className="section-shell grid gap-3 py-4 sm:grid-cols-2">
-            {navLinks.map(([label, href], index) => {
-              const Icon = navButtonIcons[index];
-              const subtitle = navButtonSubtitles[index];
-              return (
-                <a
-                  key={href}
-                  href={href}
-                  onClick={() => setMenuOpen(false)}
-                  className="group relative isolate flex min-h-[5.8rem] items-center justify-between gap-4 overflow-hidden rounded-[1.35rem] border border-clinic-ivory/14 bg-[linear-gradient(135deg,rgba(107,31,42,1),rgba(78,20,28,1)_62%,rgba(62,39,21,0.92))] px-4 py-4 text-clinic-ivory shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_18px_40px_-30px_rgba(0,0,0,0.85)] transition hover:-translate-y-0.5 hover:border-clinic-saffron/80"
-                >
-                  <span className="absolute -right-7 -top-9 h-24 w-24 rounded-full bg-clinic-saffron/12 blur-2xl" aria-hidden="true" />
-                  <span className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-clinic-saffron/90 to-transparent" aria-hidden="true" />
-                  <span className="relative flex items-center gap-4">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-clinic-ivory/10 text-clinic-saffronSoft ring-1 ring-clinic-ivory/14">
-                      <Icon className="h-5 w-5" strokeWidth={1.7} />
-                    </span>
-                    <span>
-                      <span className="block text-base font-bold leading-tight">{label}</span>
-                      <span className="mt-1 block text-[11px] font-semibold uppercase tracking-[0.18em] text-clinic-ivory/48">{subtitle}</span>
-                    </span>
-                  </span>
-                  <span className="relative flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-clinic-ivory text-clinic-maroon">
-                      <ArrowRight className="h-4 w-4" />
-                    </span>
-                  </span>
-                </a>
-              );
-            })}
+        <div className="border-t border-clinic-sand bg-clinic-porcelain lg:hidden">
+          <div className="section-shell grid gap-1 py-3">
+            {navLinks.map(([label, href]) => (
+              <a
+                key={href}
+                href={href}
+                onClick={() => setMenuOpen(false)}
+                className="rounded-xl px-3 py-3 text-base font-semibold text-clinic-ink hover:bg-clinic-parchment"
+              >
+                {label}
+              </a>
+            ))}
           </div>
         </div>
       )}
@@ -643,181 +525,60 @@ function Header({ menuOpen, setMenuOpen }) {
   );
 }
 
-function ProofTicker() {
-  const loopItems = [...proofTickerItems, ...proofTickerItems, ...proofTickerItems];
-
-  return (
-    <section className="relative z-40 overflow-hidden bg-[linear-gradient(90deg,#6B1F2A,#B86B3C,#D98C2B,#6B1F2A)] text-clinic-ivory shadow-[0_18px_44px_-34px_rgba(107,31,42,0.85)]" aria-label="Clinic assurances">
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-clinic-maroon to-transparent sm:w-28" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-clinic-maroon to-transparent sm:w-28" />
-      <div className="proof-ticker-track flex w-max items-center gap-7 py-3 will-change-transform sm:gap-10">
-        {loopItems.map(([Icon, text], index) => (
-          <div key={`${text}-${index}`} className="flex min-w-max items-center gap-3 px-1 text-sm font-bold sm:text-[15px]">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/16 text-clinic-saffronSoft ring-1 ring-white/22">
-              <Icon className="h-4 w-4" strokeWidth={2} />
-            </span>
-            <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.22)]">{text}</span>
-          </div>
-        ))}
-      </div>
-      <ul className="sr-only">
-        {proofTickerItems.map(([, text]) => (
-          <li key={text}>{text}</li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 function Hero() {
   return (
-    <section id="home" className="relative isolate overflow-hidden bg-clinic-ivory">
-      <div className="absolute inset-y-0 right-0 -z-10 hidden w-[58%] overflow-hidden lg:block" aria-hidden="true">
-        <img src={heroImage} alt="" className="h-full w-full object-cover brightness-[1.05] contrast-[1.03] saturate-[0.96] sepia-[0.05]" />
-        <div className="absolute inset-0 bg-gradient-to-r from-clinic-ivory via-clinic-ivory/72 to-clinic-maroon/12" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_24%,rgba(219,151,71,0.18),transparent_30%),linear-gradient(180deg,rgba(251,248,243,0.10),rgba(251,248,243,0.62))]" />
-      </div>
-      <div className="pointer-events-none absolute left-1/2 top-6 -z-10 -translate-x-1/2 font-heading text-[13rem] font-semibold leading-none text-clinic-maroon/[0.045] sm:text-[22rem] lg:left-[58%] lg:text-[32rem]" aria-hidden="true">
-        శ్రీ
-      </div>
-      <div className="section-shell pb-14 pt-6 sm:pb-20 sm:pt-8 lg:pb-24 lg:pt-10">
-        {/* Full-width identity row — logo + clinic name (English + Telugu) */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease }}
-          className="border-l border-clinic-saffron/70 pl-5 sm:pl-8"
-        >
-          <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:gap-8 lg:gap-10">
-            <motion.span
-              initial={{ opacity: 0, scale: 0.7, rotate: -8 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              transition={{ duration: 0.9, delay: 0.05, ease: [0.34, 1.56, 0.64, 1] }}
-              className="flex h-36 w-36 shrink-0 items-center justify-center rounded-[1.75rem] border border-clinic-sand bg-clinic-porcelain p-2 shadow-card sm:h-44 sm:w-44 lg:h-56 lg:w-56 xl:h-64 xl:w-64"
+    <section id="home" className="relative overflow-hidden bg-clinic-ivory">
+      <div className="pointer-events-none absolute -left-24 top-10 -z-10 h-72 w-72 rounded-full bg-clinic-saffron/20 blur-3xl" aria-hidden="true" />
+      <div className="section-shell grid items-center gap-10 py-10 lg:grid-cols-[1.12fr_0.88fr] lg:py-16">
+        <div>
+          <Kicker>Visakhapatnam · MVP Double Road</Kicker>
+          <h1 className="mt-4 max-w-3xl text-balance font-heading text-fluid-5xl font-semibold text-clinic-ink">
+            Hearing and speech care for every age, under one roof.
+          </h1>
+          <p className="mt-4 max-w-2xl font-heading text-lg font-medium text-clinic-maroon sm:text-xl">
+            అన్ని వయసుల వారికి వినికిడి మరియు మాట సంరక్షణ — ఒకే చోట.
+          </p>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-clinic-umber">
+            Full-range hearing tests, multi-brand hearing aid fitting, speech and language therapy for children and adults, and on-call allied team support — delivered by AIISH-trained clinicians.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <a href="#booking" className="btn-primary">
+              Plan a visit <ArrowRight className="h-4 w-4" />
+            </a>
+            <a
+              href={`https://wa.me/${primaryWhatsappNumber}?text=${whatsappMessage}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn-secondary"
             >
-              <img src={logoImage} alt="Sri Rudra Speech & Hearing Clinic logo" className="h-full w-full rounded-[1.4rem] object-contain" decoding="async" fetchPriority="high" />
-            </motion.span>
-            <NameReveal />
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp the clinic
+            </a>
           </div>
-        </motion.div>
-
-        {/* Content row — description / chips / CTAs on left, visit window on right */}
-        <div className="mt-10 grid gap-12 lg:grid-cols-[minmax(0,1.45fr)_21rem] lg:items-end">
-          <div>
-            <motion.h1
-              initial={{ opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.75, delay: 0.15, ease }}
-              className="max-w-3xl text-balance text-2xl font-semibold leading-snug text-clinic-umber sm:text-3xl lg:text-[2.1rem]"
-            >
-              Hearing and speech care for all age groups, under one roof.
-            </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 14 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.7, delay: 0.25, ease }}
-              className="mt-2 max-w-3xl text-sm font-medium text-clinic-clay sm:text-base"
-            >
-              అన్ని వయసుల వారికి వినికిడి మరియు మాట సంరక్షణ — ఒకే చోట.
-            </motion.p>
-            <motion.p
-              initial={{ opacity: 0, y: 14 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.7, delay: 0.35, ease }}
-              className="mt-6 max-w-3xl text-lg leading-8 text-clinic-umber sm:text-xl"
-            >
-              Full-range hearing tests, multi-brand hearing aid fitting, speech and language therapy for children and adults, and on-call allied team support — delivered by AIISH-trained clinicians at MVP Double Road, Visakhapatnam.
-            </motion.p>
-
-          </div>
-
-          <motion.aside
-            initial={{ opacity: 0, x: 60 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: '-60px' }}
-            transition={{ duration: 0.95, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="relative hidden lg:block lg:justify-self-end"
-          >
-            <motion.div
-              animate={{ y: [0, -6, 0] }}
-              transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-              className="relative w-[20rem] overflow-hidden rounded-[1.75rem] border border-clinic-saffron/45 bg-clinic-maroonDeep p-6 text-clinic-ivory shadow-[0_26px_70px_-28px_rgba(78,20,28,0.78)] ring-1 ring-clinic-maroon/30"
-              style={{
-                textShadow: '0 1px 2px rgba(0,0,0,0.55), 0 0 18px rgba(0,0,0,0.35)',
-              }}
-            >
-              {/* Subtle inner gradient — keeps text legible against bright backgrounds */}
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 rounded-[1.75rem]"
-                style={{
-                  background:
-                    'linear-gradient(135deg, rgba(107,31,42,0.98) 0%, rgba(78,20,28,0.98) 58%, rgba(62,39,21,0.96) 100%)',
-                }}
-              />
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent"
-              />
-              <div className="relative flex items-center gap-3 border-b border-white/25 pb-4">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-clinic-saffronSoft ring-1 ring-white/20">
-                  <CalendarCheck className="h-5 w-5" strokeWidth={1.6} />
-                </span>
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-clinic-saffronSoft">Visit window</p>
-                  <p className="mt-0.5 font-heading text-2xl font-semibold text-white">10 AM – 9 PM</p>
-                </div>
-              </div>
-              <div className="relative grid gap-3 py-5">
-                {[
-                  ['Mon–Sat', 'Consultations by appointment'],
-                  ['Sunday', 'Available on prior-call basis'],
-                  ['Location', 'MVP Double Road, Visakhapatnam'],
-                ].map(([label, value]) => (
-                  <div key={label} className="grid grid-cols-[4.5rem_1fr] gap-3">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-clinic-saffronSoft">{label}</p>
-                    <p className="text-[13px] font-medium leading-5 text-white">{value}</p>
-                  </div>
-                ))}
-              </div>
-              <motion.a
-                whileHover={{ y: -2 }}
-                whileTap={{ scale: 0.97 }}
-                href="#booking"
-                className="relative inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-clinic-ivory px-5 text-sm font-semibold text-clinic-maroon shadow-sm transition hover:bg-clinic-saffronSoft"
-                style={{ textShadow: 'none' }}
-              >
-                Plan visit <ArrowRight className="h-4 w-4" />
-              </motion.a>
-            </motion.div>
-          </motion.aside>
+          <ul className="mt-8 flex flex-wrap gap-2" aria-label="Clinic assurances">
+            {proofTickerItems.map(([Icon, text]) => (
+              <li key={text} className="inline-flex items-center gap-2 rounded-full border border-clinic-sand bg-clinic-porcelain px-3 py-1.5 text-xs font-semibold text-clinic-umber">
+                <Icon className="h-3.5 w-3.5 text-clinic-maroon" strokeWidth={1.8} />
+                {text}
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
-    </section>
-  );
-}
 
-function HeroPhotoReward() {
-  return (
-    <section className="bg-clinic-ivory pb-12 sm:pb-16" aria-label="Clinic preview">
-      <div className="section-shell">
-        <motion.figure {...fadeUp} className="relative overflow-hidden rounded-[2rem] border border-clinic-sand bg-clinic-cream shadow-soft">
+        <figure className="relative">
           <img
             src={heroImage}
-            alt="Audiology diagnostic equipment at Sri Rudra Clinic"
-            className="h-[420px] w-full object-cover brightness-[1.06] contrast-[1.03] saturate-[0.96] sepia-[0.05] sm:h-[560px]"
-            loading="eager"
+            alt="Sound-treated audiology booth at Sri Rudra Speech and Hearing Clinic"
+            className="aspect-[4/5] w-full rounded-[1.75rem] object-cover shadow-soft sm:aspect-[5/4] lg:aspect-[4/5]"
             decoding="async"
             fetchPriority="high"
           />
-          <figcaption className="absolute inset-x-4 bottom-4 max-w-lg rounded-3xl border border-clinic-ivory/70 bg-clinic-porcelain/90 p-5 shadow-card backdrop-blur-xl sm:left-6 sm:bottom-6">
-            <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-clinic-maroon">Advanced audiology setup</p>
-            <p className="mt-2 text-sm leading-6 text-clinic-umber">Accurate hearing assessments with modern clinical tools and patient-first pacing.</p>
+          <figcaption className="absolute inset-x-4 bottom-4 rounded-2xl bg-clinic-maroonDeep/92 p-4 text-clinic-ivory shadow-card ring-1 ring-white/10 backdrop-blur-sm">
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-clinic-saffronSoft">Visit window</p>
+            <p className="mt-1 font-heading text-2xl font-semibold">Mon–Sat · 10 AM – 9 PM</p>
+            <p className="mt-1 text-sm text-clinic-ivory/75">Sunday on prior call · second floor, beside Kotak Mahindra Bank</p>
           </figcaption>
-        </motion.figure>
+        </figure>
       </div>
     </section>
   );
@@ -899,46 +660,32 @@ function CareFlow() {
 
 function Services() {
   const overrides = useSiteContent().services || {};
+  const spans = ['md:col-span-4', 'md:col-span-2', 'md:col-span-3', 'md:col-span-3'];
   return (
     <Section id="services" eyebrow="Services • సేవలు" title="Four care paths under one roof." description="Hearing testing, hearing aid services, paediatric speech therapy, and adult rehabilitation — each delivered by qualified audiologists and speech-language pathologists.">
-      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-        {services.map(({ icon: Icon, title, te, text: defaultText, image, images }) => {
+      <div className="grid gap-4 md:grid-cols-6">
+        {services.map(({ icon: Icon, title, te, text: defaultText, image, images }, index) => {
           const text = overrides[title] || defaultText;
+          const photo = images?.[0]?.src || image;
           return (
-          <motion.div key={title} {...fadeUp}>
-            <Card className="premium-card group relative h-full overflow-hidden transition duration-300 hover:-translate-y-1 hover:border-clinic-saffron/60 hover:shadow-soft">
-              {images && images.length > 1 ? (
-                <div aria-hidden="true" className="absolute inset-0 grid grid-cols-2 gap-px bg-clinic-maroonDeep opacity-0 transition duration-500 group-hover:opacity-100">
-                  {images.map((img) => (
-                    <div key={img.src} className="relative overflow-hidden">
-                      <img
-                        src={img.src}
-                        alt=""
-                        loading="lazy"
-                        className="h-full w-full object-cover brightness-[0.78] contrast-[1.08] saturate-[0.98] transition duration-700 group-hover:scale-[1.04]"
-                      />
-                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-clinic-maroonDeep/90 via-clinic-maroonDeep/40 to-transparent p-2 text-[10px] font-bold uppercase tracking-[0.18em] text-clinic-saffronSoft">
-                        {img.label}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <img src={image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-0 brightness-[0.76] contrast-[1.08] saturate-[0.96] sepia-[0.06] transition duration-500 group-hover:opacity-100" loading="lazy" aria-hidden="true" />
-              )}
-              <div className="absolute inset-0 bg-clinic-maroon/0 transition duration-500 group-hover:bg-clinic-maroon/58" aria-hidden="true" />
-              <CardHeader className="relative gap-5 p-7">
-                <span className="warm-icon bg-clinic-maroon/[0.08] transition duration-300 group-hover:bg-clinic-ivory/18 group-hover:text-clinic-saffronSoft group-hover:ring-clinic-ivory/15">
-                  <Icon className="h-6 w-6" strokeWidth={1.6} />
+            <motion.article key={title} {...fadeUp} className={`premium-card group flex h-full flex-col overflow-hidden ${spans[index] || ''}`}>
+              <div className="relative h-44 overflow-hidden sm:h-52">
+                <img src={photo} alt="" className="h-full w-full object-cover transition duration-700 group-hover:scale-[1.03]" loading="lazy" />
+                {images && images.length > 1 && (
+                  <p className="absolute bottom-3 left-3 rounded-full bg-clinic-maroonDeep/85 px-3 py-1 text-[11px] font-semibold text-clinic-ivory">
+                    {images.map((img) => img.label).join(' · ')}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col p-6">
+                <span className="warm-icon">
+                  <Icon className="h-5 w-5" strokeWidth={1.7} />
                 </span>
-                <div>
-                  <CardTitle className="text-[1.55rem] font-semibold leading-tight text-clinic-ink transition duration-300 group-hover:text-clinic-ivory">{title}</CardTitle>
-                  <p className="mt-1 text-xs font-semibold text-clinic-clay transition duration-300 group-hover:text-clinic-ivory/70">{te}</p>
-                </div>
-              </CardHeader>
-              <CardContent className="relative px-7 pb-7 text-[15px] leading-7 text-clinic-umber transition duration-300 group-hover:text-clinic-ivory/82">{text}</CardContent>
-            </Card>
-          </motion.div>
+                <h3 className="mt-4 font-heading text-2xl font-semibold text-clinic-ink">{title}</h3>
+                <p className="mt-1 text-xs font-semibold text-clinic-clay">{te}</p>
+                <p className="mt-3 text-[15px] leading-7 text-clinic-umber">{text}</p>
+              </div>
+            </motion.article>
           );
         })}
       </div>
@@ -1172,18 +919,8 @@ function Process() {
           </p>
         </motion.div>
 
-        <div className="grid gap-4">
-          {visitProcess.map(({ no, title, text, time }) => (
-            <motion.div key={title} {...fadeUp} className="grid gap-5 border-t border-clinic-sand bg-clinic-porcelain/58 py-7 sm:grid-cols-[5rem_1fr_auto] sm:items-start sm:px-6">
-              <p className="font-heading text-5xl font-semibold leading-none text-clinic-saffron">{no}</p>
-              <div>
-                <h3 className="text-3xl font-semibold leading-tight text-clinic-ink">{title}</h3>
-                <p className="mt-3 max-w-3xl text-[15px] leading-7 text-clinic-umber">{text}</p>
-              </div>
-              <p className="w-fit rounded-full border border-clinic-sand bg-clinic-ivory px-4 py-2 text-sm font-semibold text-clinic-maroon">{time}</p>
-            </motion.div>
-          ))}
-        </div>
+        <PaperVisit steps={visitProcess} />
+        <ShareClinic clinicName={clinicName} address={address} phone={clinicPhone} />
       </div>
     </section>
   );
