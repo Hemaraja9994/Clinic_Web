@@ -22,7 +22,7 @@ const ALL_STAFF = ['admin', 'therapist', 'reception'];
 const CLINICAL = ['admin', 'therapist'];
 const APPOINTMENT_STATUSES = ['requested', 'confirmed', 'completed', 'cancelled', 'no_show'];
 const REPORT_TYPES = ['audiology', 'speech_language'];
-const CONTENT_KEYS = ['announcement', 'hours', 'services'];
+const CONTENT_KEYS = ['announcement', 'hours', 'services', 'hero', 'facilities', 'trust', 'testimonials', 'faq', 'contact'];
 
 async function audit(db, user, action, entity, entityId, detail) {
   await db.prepare('INSERT INTO audit_log (user_id, action, entity, entity_id, detail) VALUES (?, ?, ?, ?, ?)')
@@ -428,7 +428,7 @@ async function putContent({ db, user, request, params }) {
   requireRole(user, 'admin');
   if (!CONTENT_KEYS.includes(params.key)) throw new HttpError(404, 'Unknown content section.');
   const value = JSON.stringify((await readJson(request)).value ?? null);
-  if (value.length > 20000) throw new HttpError(400, 'Content is too long.');
+  if (value.length > 80000) throw new HttpError(400, 'Content is too long.');
   await db.prepare(
     `INSERT INTO site_content (key, value, updated_by, updated_at) VALUES (?, ?, ?, datetime('now'))
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`,
