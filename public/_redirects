@@ -2,6 +2,9 @@
 # Old staff bookmarks on the main domain are forwarded there.
 # 302 (temporary) so browsers don't cache the forward forever.
 
+/desk                 /desk.html                                                     200
+/desk/                /desk.html                                                     200
+
 /login                https://admin.srirudraspeechandhearing.com/login                302
 /forgot-password      https://admin.srirudraspeechandhearing.com/forgot-password      302
 /admin                https://admin.srirudraspeechandhearing.com/login                302

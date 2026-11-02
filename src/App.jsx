@@ -1722,6 +1722,10 @@ function Footer() {
               <ChevronRight className="h-4 w-4 text-clinic-saffron" />
               Staff login
             </a>
+            <a href="/desk.html" className="inline-flex items-center gap-2 text-sm text-clinic-ivory/70 hover:text-clinic-ivory">
+              <ChevronRight className="h-4 w-4 text-clinic-saffron" />
+              Offline clinic desk
+            </a>
           </div>
         </div>
       </div>
