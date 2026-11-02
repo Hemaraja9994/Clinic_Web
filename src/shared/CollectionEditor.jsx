@@ -29,7 +29,6 @@ export function CollectionEditor({ clinics, initial, onSubmit, onClose }) {
     mode: 'single',
   }));
   const [lines, setLines] = useState([]);
-  const [servicesOpen, setServicesOpen] = useState(false);
   const [error, setError] = useState('');
   const set = (key) => (value) => setForm((current) => ({ ...current, [key]: value }));
 
@@ -37,9 +36,15 @@ export function CollectionEditor({ clinics, initial, onSubmit, onClose }) {
     event.preventDefault();
     setError('');
     try {
-      const rows = buildCollectionRows(form.mode === 'multi' && !editing
-        ? { ...form, mode: 'multi', lines }
-        : { ...form, mode: 'single' });
+      const ticked = lines.filter((line) => line.category);
+      let rows;
+      if (!editing && ticked.length) {
+        rows = buildCollectionRows({ ...form, mode: 'multi', lines: ticked });
+      } else if (!editing && String(form.amount).trim() === '') {
+        throw new Error('Click a test and enter its amount, or choose one category and an amount.');
+      } else {
+        rows = buildCollectionRows({ ...form, mode: 'single' });
+      }
       onSubmit(rows);
     } catch (err) {
       setError(err.message);
@@ -53,7 +58,7 @@ export function CollectionEditor({ clinics, initial, onSubmit, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/40 p-4" onClick={onClose}>
-      <form onSubmit={save} onClick={(event) => event.stopPropagation()} className="a-card my-4 grid w-full max-w-lg gap-4">
+      <form onSubmit={save} onClick={(event) => event.stopPropagation()} className="a-card my-4 grid w-full max-w-2xl gap-4">
         <div>
           <h2 className="font-heading text-xl font-semibold text-clinic-maroon">{editing ? 'Edit collection' : 'New collection'}</h2>
           <p className="mt-1 text-sm text-clinic-clay">Money taken in, with the phone number and what it was for.</p>
@@ -72,22 +77,14 @@ export function CollectionEditor({ clinics, initial, onSubmit, onClose }) {
           <SingleCategory form={form} set={set} />
         ) : (
           <>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className={form.mode === 'single' ? 'a-btn-primary' : 'a-btn-secondary'} onClick={() => setForm((current) => ({ ...current, mode: 'single' }))}>
-                One category
-              </button>
-              <button type="button" data-testid="mode-multi" className={form.mode === 'multi' ? 'a-btn-primary' : 'a-btn-secondary'} onClick={() => { setForm((current) => ({ ...current, mode: 'multi' })); setServicesOpen(true); }}>
-                Several services
-              </button>
-            </div>
-            {form.mode === 'single' ? <SingleCategory form={form} set={set} /> : (
-              <div className="rounded-xl border border-clinic-sand bg-clinic-parchment/60 p-3">
-                <p className="text-sm text-clinic-ink">{summary || 'No services chosen yet.'}</p>
-                <button type="button" data-testid="open-services" className="a-btn-secondary mt-3" onClick={() => setServicesOpen(true)}>
-                  Choose services
-                </button>
+            <TestChecklist lines={lines} onChange={setLines} />
+            {summary && <p className="text-sm text-clinic-ink">{summary}</p>}
+            <details className="rounded-xl border border-clinic-sand bg-clinic-parchment/50 px-3 py-2">
+              <summary className="cursor-pointer text-sm font-semibold text-clinic-maroon">Or save as one category</summary>
+              <div className="mt-3">
+                <SingleCategory form={form} set={set} />
               </div>
-            )}
+            </details>
           </>
         )}
 
@@ -114,13 +111,73 @@ export function CollectionEditor({ clinics, initial, onSubmit, onClose }) {
         </div>
       </form>
 
-      {servicesOpen && (
-        <ServiceDialog
-          lines={lines}
-          onChange={setLines}
-          onClose={() => setServicesOpen(false)}
-        />
-      )}
+    </div>
+  );
+}
+
+function TestChecklist({ lines, onChange }) {
+  const selected = new Set(lines.map((line) => line.category));
+  const toggle = (id) => {
+    onChange(selected.has(id) ? lines.filter((line) => line.category !== id) : [...lines, emptyLine(id)]);
+  };
+  const setAmount = (id, amount) => {
+    onChange(lines.map((line) => (line.category === id ? { ...line, amount } : line)));
+  };
+
+  return (
+    <div data-testid="test-checklist">
+      <p className="text-sm font-semibold text-clinic-ink">Click a test to add it</p>
+      <p className="mt-1 text-sm text-clinic-clay">Tick every test that was paid for. Each one gets its own amount. Phone, reference, and note are copied onto each row.</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {SERVICE_PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            data-testid={`preset-${preset.id}`}
+            className="a-btn-secondary"
+            onClick={() => onChange(applyPreset(lines, preset))}
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {SERVICE_GROUPS.map((group) => (
+          <fieldset key={group.title} className="min-w-0">
+            <legend className="text-xs font-semibold uppercase tracking-wider text-clinic-umber">{group.title}</legend>
+            <div className="mt-2 grid gap-1.5">
+              {group.ids.map((id) => {
+                const line = lines.find((item) => item.category === id);
+                const on = selected.has(id);
+                return (
+                  <div key={id} className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 ${on ? 'border-clinic-maroon bg-clinic-saffronSoft/60' : 'border-clinic-sand/80 bg-white'}`}>
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        data-testid={`service-${id}`}
+                        checked={on}
+                        onChange={() => toggle(id)}
+                      />
+                      <span className="text-sm">{categoryLabel(id)}</span>
+                    </label>
+                    {on && (
+                      <input
+                        className="a-input w-24"
+                        data-testid={`service-amount-${id}`}
+                        inputMode="decimal"
+                        placeholder="₹"
+                        aria-label={`Amount for ${categoryLabel(id)}`}
+                        value={line?.amount ?? ''}
+                        onChange={(event) => setAmount(id, event.target.value)}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+        ))}
+      </div>
     </div>
   );
 }
@@ -134,84 +191,6 @@ function SingleCategory({ form, set }) {
       <Field label="Amount (₹) *">
         <Input data-testid="amount" value={form.amount} onChange={set('amount')} inputMode="decimal" placeholder="0.00" />
       </Field>
-    </div>
-  );
-}
-
-function ServiceDialog({ lines, onChange, onClose }) {
-  const selected = new Set(lines.map((line) => line.category));
-  const toggle = (id) => {
-    onChange(selected.has(id) ? lines.filter((line) => line.category !== id) : [...lines, emptyLine(id)]);
-  };
-  const setAmount = (id, amount) => {
-    onChange(lines.map((line) => (line.category === id ? { ...line, amount } : line)));
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] grid place-items-center overflow-y-auto bg-black/50 p-4" onClick={(event) => { event.stopPropagation(); onClose(); }}>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="service-dialog-title"
-        onClick={(event) => event.stopPropagation()}
-        className="a-card my-4 w-full max-w-xl"
-      >
-        <h2 id="service-dialog-title" className="font-heading text-xl font-semibold text-clinic-maroon">Services for this visit</h2>
-        <p className="mt-1 text-sm text-clinic-clay">Tick every service that was paid for. Each one is saved with its own amount. Phone, reference, and note are copied onto each row.</p>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          {SERVICE_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              data-testid={`preset-${preset.id}`}
-              className="a-btn-secondary"
-              onClick={() => onChange(applyPreset(lines, preset))}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="mt-4 grid gap-4">
-          {SERVICE_GROUPS.map((group) => (
-            <fieldset key={group.title}>
-              <legend className="text-xs font-semibold uppercase tracking-wider text-clinic-umber">{group.title}</legend>
-              <div className="mt-2 grid gap-2">
-                {group.ids.map((id) => {
-                  const line = lines.find((item) => item.category === id);
-                  return (
-                    <label key={id} className="flex items-center gap-3 rounded-xl border border-clinic-sand/80 bg-white px-3 py-2">
-                      <input
-                        type="checkbox"
-                        data-testid={`service-${id}`}
-                        checked={selected.has(id)}
-                        onChange={() => toggle(id)}
-                      />
-                      <span className="min-w-0 flex-1 text-sm">{categoryLabel(id)}</span>
-                      {selected.has(id) && (
-                        <input
-                          className="a-input w-28"
-                          data-testid={`service-amount-${id}`}
-                          inputMode="decimal"
-                          placeholder="₹"
-                          aria-label={`Amount for ${categoryLabel(id)}`}
-                          value={line?.amount ?? ''}
-                          onChange={(event) => setAmount(id, event.target.value)}
-                        />
-                      )}
-                    </label>
-                  );
-                })}
-              </div>
-            </fieldset>
-          ))}
-        </div>
-
-        <div className="mt-4 flex justify-end">
-          <button type="button" data-testid="services-done" className="a-btn-primary" onClick={onClose}>Done</button>
-        </div>
-      </div>
     </div>
   );
 }

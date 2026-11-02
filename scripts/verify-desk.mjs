@@ -33,8 +33,7 @@ await page.goto('http://127.0.0.1:8734/#/collections');
 await page.getByRole('heading', { name: 'Collections' }).waitFor();
 await page.getByTestId('record-collection').click();
 await page.getByRole('heading', { name: 'New collection' }).waitFor();
-await page.getByTestId('mode-multi').click();
-await page.getByRole('dialog', { name: 'Services for this visit' }).waitFor();
+await page.getByTestId('test-checklist').waitFor();
 await page.getByTestId('preset-pta_impedance').click();
 await page.getByTestId('preset-bera_oae').click();
 await page.getByTestId('service-huggies').check();
@@ -43,7 +42,6 @@ await page.getByTestId('service-amount-impedance').fill('150');
 await page.getByTestId('service-amount-bera').fill('800');
 await page.getByTestId('service-amount-oae').fill('450');
 await page.getByTestId('service-amount-huggies').fill('40');
-await page.getByTestId('services-done').click();
 await page.getByTestId('phone').fill('+91 70320 54275');
 await page.getByLabel('Reference').fill('Dr suneel');
 await page.getByLabel('Notes').fill('Combined visit');
@@ -58,6 +56,7 @@ for (const label of ['PTA', 'Impedance', 'BERA', 'OAE', 'Huggies', '7032054275',
 }
 
 await page.getByTestId('record-collection').click();
+await page.getByText('Or save as one category').click();
 await page.getByTestId('category').selectOption({ label: 'PTA + Impedance' });
 const options = await page.getByTestId('category').locator('option').allTextContents();
 for (const label of ['PTA + Impedance', 'PTA + Impedance + Tinnitus', 'BERA & OAE', 'Ear tips', 'Domes']) {
