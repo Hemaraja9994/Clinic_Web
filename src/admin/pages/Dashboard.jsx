@@ -60,7 +60,7 @@ export default function Dashboard() {
 function Stat({ icon: Icon, label, value, href, highlight }) {
   return (
     <a href={href} className={`a-card flex items-center gap-4 transition hover:border-clinic-maroon ${highlight ? 'ring-2 ring-clinic-saffron' : ''}`}>
-      <span className="grid h-12 w-12 place-items-center rounded-xl bg-clinic-saffronSoft text-clinic-maroon"><Icon className="h-6 w-6" /></span>
+      <span className="grid h-14 w-14 place-items-center rounded-2xl bg-clinic-maroon text-[#fff6ee]"><Icon className="h-6 w-6" /></span>
       <span>
         <span className="block text-2xl font-semibold text-clinic-ink">{value}</span>
         <span className="text-xs text-clinic-clay">{label}</span>

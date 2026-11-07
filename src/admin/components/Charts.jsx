@@ -104,7 +104,7 @@ export function AudiogramKey() {
     ['<', RED, 'R bone'], ['>', BLUE, 'L bone'], ['[', RED, 'R bone masked'], [']', BLUE, 'L bone masked'],
   ];
   return (
-    <div className="grid grid-cols-4 gap-x-3 gap-y-1 text-[11px] text-clinic-umber">
+    <div className="grid grid-cols-4 gap-x-3 gap-y-1 text-sm text-clinic-umber">
       {items.map(([kind, color, label]) => (
         <span key={label} className="inline-flex items-center gap-1">
           <svg width="22" height="16" viewBox="0 0 22 16"><Symbol kind={kind} x={11} y={8} color={color} /></svg>

@@ -76,7 +76,7 @@ export default function Appointments() {
       />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {VIEWS.map(([v, label]) => (
-          <button key={v} type="button" onClick={() => setView(v)} className={`rounded-full px-4 py-1.5 text-sm font-medium ${view === v ? 'bg-clinic-maroon text-clinic-ivory' : 'bg-white text-clinic-umber ring-1 ring-clinic-sand'}`}>
+          <button key={v} type="button" onClick={() => setView(v)} className={`min-h-11 rounded-full border px-4 py-2 text-sm font-semibold ${view === v ? 'border-transparent bg-clinic-maroon text-[#fff6ee]' : 'border-[#c4ad96] bg-[#fffdfb] text-clinic-ink'}`}>
             {label}
           </button>
         ))}
