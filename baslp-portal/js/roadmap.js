@@ -75,7 +75,7 @@ function renderRoadmap() {
   const maxXp = campaign.levels.reduce((sum, lv) => sum + lv.xp, 0);
   const today = questToday();
 
-  const tabs = STUDY_PLAN.campaigns.map((c) => {
+  const tabs = STUDY_PLAN.campaigns.length < 2 ? "" : STUDY_PLAN.campaigns.map((c) => {
     const n = questClearedCount(state, c);
     const on = c.id === campaign.id;
     return `<button type="button" class="quest-tab ${on ? "is-on" : ""}" data-campaign="${esc(c.id)}" aria-pressed="${on}">
@@ -110,10 +110,9 @@ function renderRoadmap() {
   }).join("");
 
   const done = !!state.cleared[questKey(campaign, level.iso)];
-  const blocks = (STUDY_PLAN.rhythms[level.kind] || []).map((row) =>
-    `<li><span>${esc(row[0])}</span><span>${esc(row[1])}</span></li>`
+  const blocks = (level.periods || []).map((slot) =>
+    `<tr class="${slot.hold ? "is-hold" : "is-study"}"><td>${esc(slot.time)}</td><td>${esc(slot.block)}</td><td>${esc(slot.work)}</td></tr>`
   ).join("");
-  const focus = level.focus.map((line) => `<li>${esc(line)}</li>`).join("");
   const papers = campaign.papers.map((p) =>
     `<li><span>${esc(p[0])}</span><span>${esc(p[1])}</span><span>${esc(p[2])}</span></li>`
   ).join("");
@@ -143,10 +142,11 @@ function renderRoadmap() {
         <h3 class="font-serif text-2xl font-black text-navy-900 dark:text-white mt-1">${esc(level.label)}</h3>
         <p class="text-maroon-700 dark:text-maroon-200 font-semibold mt-1">${esc(level.paper)}</p>
         <p class="text-lg font-bold text-gray-900 dark:text-white mt-1">${esc(level.title)}</p>
-        <h4>Clock</h4>
-        <ul class="quest-clock">${blocks}</ul>
-        <h4>Do this</h4>
-        <ul class="quest-focus">${focus}</ul>
+        <h4>Timetable</h4>
+        <table class="quest-table">
+          <thead><tr><th>Time</th><th>Block</th><th>What to do</th></tr></thead>
+          <tbody>${blocks}</tbody>
+        </table>
         <div class="quest-recall">
           <p class="text-xs font-bold tracking-widest uppercase text-navy-700 dark:text-navy-200">Tick only after this</p>
           <p class="mt-1">${esc(level.recall)}</p>

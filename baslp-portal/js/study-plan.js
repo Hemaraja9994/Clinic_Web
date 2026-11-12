@@ -1,46 +1,48 @@
-/* December 2026 self-study quest.
-   Built from CoE notification YU/COE/Exam/Notification 1/Dec/2026
-   (dated 06.11.2026): theory exams for I, III and V semester B.ASLP
-   commence 11 December 2026. The paper-wise timetable is not out yet,
-   so each campaign is a preparation rotation, not the exam order.
-   Topics follow the RCI 2024-25 curriculum already on this portal. */
+/* December 2026 self-study timetable for Semester I only.
+   The CoE notice (YU/COE/Exam/Notification 1/Dec/2026, dated 06.11.2026)
+   also names Semesters III and V. This plan is the first-year theory
+   timetable: B1.1 to B1.4. College stays 8:30 am to 3:30 pm. Self-study
+   is the morning recall and the two evening sittings. */
 const STUDY_PLAN = {
   "notice": {
     "ref": "YU/COE/Exam/Notification 1/Dec/2026",
     "dated": "06.11.2026",
     "starts": "11 December 2026",
-    "semesters": "I, III and V"
+    "semesters": "I"
   },
   "pdf": "assets/docs/BASLP_Self_Study_Plan_December_2026.pdf",
   "rules": [
-    "The Controller of Examinations has not published the paper-wise timetable. Keep this rotation, then shift the last four camp days to match the order once it is announced.",
-    "University theory is one component. You also need 50% in internal assessment, practicals and the clinical examination, or you cannot sit the University theory papers.",
-    "Do not skip a clinical posting to study. Attendance stays 80% in theory and 90% in clinicals, in every subject.",
-    "On a class day the quest is an evening block, 6:30 to 9:05 pm. Sundays and the final camp are longer. Kanakadasa Jayanti, 27 November 2026, is a Karnataka general holiday; confirm it on the University list before treating it as a free day.",
-    "Stop new topics at 6:00 pm on 10 December. Pack your hall ticket, identity card, pens and water, and sleep."
+    "This timetable is for Semester I theory only: B1.1, B1.2, B1.3 and B1.4. B1.5 and B1.6 stay on the practical and clinical roster.",
+    "College is 8:30 am to 3:30 pm, with lunch 12:30 to 1:30. The hostel bus leaves at 8:10 am. Self-study does not replace a class or a posting.",
+    "On a class day you study 6:15 to 7:00 am, then 5:15 to 7:25 pm and 8:05 to 9:05 pm. That is about three hours. Sundays and 7 to 10 December are longer.",
+    "You still need 50% in the theory paper, and also in internal assessment, practicals and the clinical examination.",
+    "The paper order is not out yet. When it is published, keep these topics and move the 7 to 10 December camp so each paper's full day falls just before that paper.",
+    "10 December: last new work ends at 4:00 pm. Pack the hall ticket, identity card, pens and water, and sleep."
   ],
   "rhythms": {
     "evening": [
-      ["6:30–6:50 pm", "Closed book: write what you remember from the previous level."],
-      ["6:50–8:20 pm", "Today's unit, in your own words, with one diagram or table."],
-      ["8:20–8:35 pm", "Break. Stand up. No phone."],
-      ["8:35–9:05 pm", "Eight short answers. Tick the level only if the recall line is done."]
+      ["6:15–7:00 am", "Morning recall, book closed, then get ready for the 8:10 bus."],
+      ["8:30 am–3:30 pm", "College and clinics. Lunch 12:30–1:30. Not self-study."],
+      ["5:15–6:25 pm", "Main paper, new work."],
+      ["6:40–7:25 pm", "Same paper, short answers."],
+      ["8:05–8:50 pm", "Paired paper, one page already studied."],
+      ["8:50–9:05 pm", "Error log. In bed by 10:30 pm."]
     ],
     "boss": [
-      ["8:30–11:00 am", "First paper, notes allowed for the first hour only."],
-      ["11:15 am–1:15 pm", "Second paper, same rule."],
-      ["2:30–4:15 pm", "Mixed recall. Book closed."],
-      ["4:15–4:30 pm", "Error log: three points you will redo, then tick the level."]
+      ["7:20–10:45 am", "First paper, with a break at 9:00."],
+      ["11:00 am–3:00 pm", "Second paper, with lunch 12:30–1:30."],
+      ["3:15–4:30 pm", "Mixed recall and the error log. Evening is free."]
     ],
     "holiday": [
-      ["9:00 am–12:00 pm", "One deep pass of today's paper. Diagrams first."],
-      ["12:00–2:00 pm", "Rest and a meal. This is a holiday, not a night shift."],
-      ["2:00–4:30 pm", "Questions and one timed set. Tick the level."]
+      ["8:15–12:00 pm", "One paper: diagrams, then questions."],
+      ["12:00–1:30 pm", "Lunch and rest."],
+      ["1:30–3:25 pm", "Weak pages only, then stop."]
     ],
     "camp": [
-      ["8:30 am–12:30 pm", "Full pass of the camp paper. Mark only the gaps."],
-      ["2:00–4:30 pm", "Recall set on the gaps. No new reading after this."],
-      ["7:30–8:30 pm", "Light review of the error log, then stop."]
+      ["7:30–8:00 am", "Blank map of the paper."],
+      ["8:00 am–12:30 pm", "Three study blocks, with breaks."],
+      ["1:30–4:30 pm", "Diagrams, then a timed set."],
+      ["7:30–8:15 pm", "Gap list only."]
     ]
   },
   "badges": [
@@ -88,11 +90,115 @@ const STUDY_PLAN = {
 
   const xp = { evening: 100, boss: 160, holiday: 140, camp: 200 };
   const kindName = {
-    evening: "Evening quest",
-    boss: "Sunday boss",
-    holiday: "Holiday long quest",
-    camp: "Final camp"
+    evening: "Class day",
+    boss: "Sunday",
+    holiday: "Holiday",
+    camp: "Study camp"
   };
+  const pair = { "B1.1": "B1.3", "B1.3": "B1.1", "B1.2": "B1.4", "B1.4": "B1.2" };
+
+  function row(time, block, work, hold) {
+    return { time: time, block: block, work: work, hold: !!hold };
+  }
+
+  function periodsFor(iso, kind, paper, title, focus) {
+    const topic = focus[0] || title;
+    const next = focus[1] || "Eight short answers on the same topic.";
+    const extra = focus[2] || "";
+    const mate = pair[paper] || "the other theory paper";
+    if (iso === "2026-12-10") {
+      return [
+        row("7:30–8:00 am", "Blank map", "No notes. One line for the weakest unit in B1.1, B1.2, B1.3 and B1.4."),
+        row("8:00–8:40 am", "B1.1", "Closed book. Speech chain, development, one disorder overview."),
+        row("8:40–8:50 am", "Break", "Water. Stand up.", true),
+        row("8:50–9:30 am", "B1.2", "One audiogram sketch and one tuning-fork case."),
+        row("9:30–9:40 am", "Break", "Walk.", true),
+        row("9:40–10:20 am", "B1.3", "Drawings only: larynx and the swallow stages."),
+        row("10:20–10:30 am", "Break", "No phone.", true),
+        row("10:30–11:10 am", "B1.4", "Middle ear, cochlea and the pathway, from memory."),
+        row("11:10 am–12:30 pm", "Gaps only", "Redo the one miss in each set. No new chapter."),
+        row("12:30–2:00 pm", "Lunch and rest", "Eat, then lie down. Books stay closed.", true),
+        row("2:00–4:00 pm", "Kit", "Hall ticket, identity card, pens, pencil, water. Set the alarm. No study after 4:00 pm."),
+        row("10:00 pm", "Lights out", "Sleep. Theory exams open tomorrow.", true)
+      ];
+    }
+    if (kind === "evening") {
+      return [
+        row("6:15–7:00 am", "Morning recall", "Book closed, 45 minutes, on yesterday's main paper. Then stop."),
+        row("7:00–8:05 am", "Leave for college", "Breakfast. Hostellers board the 8:10 am bus. Be at the stop by 8:05.", true),
+        row("8:30 am–12:30 pm", "College", "Classes and clinics on the weekly timetable. Not a self-study hour.", true),
+        row("12:30–1:30 pm", "Lunch", "College lunch. Notes stay in the bag.", true),
+        row("1:30–3:30 pm", "College", "Afternoon periods. A free hour means the clinical posting, not the library.", true),
+        row("3:40 / 4:10 pm", "Bus home", "3:40 pm shuttle, or 4:10 pm if you stayed back. Day scholars leave after 3:30.", true),
+        row("5:00–5:15 pm", "Reset", "Snack. Ten minutes away from the phone.", true),
+        row("5:15–6:25 pm", paper + " · first sitting", title + ". " + topic),
+        row("6:25–6:40 pm", "Break", "Stand, water, no phone.", true),
+        row("6:40–7:25 pm", paper + " · questions", next),
+        row("7:25–8:05 pm", "Dinner", "Eat away from the desk.", true),
+        row("8:05–8:50 pm", mate + " · second sitting", "One page of " + mate + " you have already studied. Shut the book for the last 15 minutes." + (extra ? " " + extra : "")),
+        row("8:50–9:05 pm", "Close", "Three-line error log. In bed by 10:30 pm.")
+      ];
+    }
+    if (kind === "boss") {
+      const parts = paper.split("+").map((s) => s.trim()).filter(Boolean);
+      const first = parts[0] && parts[0].indexOf("B1.") === 0 ? parts[0] : "First paper";
+      const second = parts[1] && parts[1].indexOf("B1.") === 0 ? parts[1] : mate;
+      return [
+        row("7:00–7:20 am", "Set the desk", "Two papers only: " + first + " and " + second + ". One notebook. Phone in another room."),
+        row("7:20–9:00 am", first + " · first sitting", title + ". " + topic),
+        row("9:00–9:15 am", "Break", "Walk. Do not revise on the break.", true),
+        row("9:15–10:45 am", first + " · questions", "Book open for 20 minutes, then closed. " + next),
+        row("10:45–11:00 am", "Break", "Snack.", true),
+        row("11:00 am–12:30 pm", second + " · first sitting", extra || "Diagrams first, then the definitions."),
+        row("12:30–1:30 pm", "Lunch and rest", "Eat, then 20 minutes with your eyes closed.", true),
+        row("1:30–3:00 pm", second + " · questions", "Short notes. Mark them before you look anything up."),
+        row("3:00–3:15 pm", "Break", "Step outside.", true),
+        row("3:15–4:15 pm", "Mixed recall", "Both papers, book closed."),
+        row("4:15–4:30 pm", "Error log", "Three points for the weekday evenings. Then stop. The evening is free.")
+      ];
+    }
+    if (kind === "holiday") {
+      return [
+        row("8:00–8:15 am", "Check the notice", "27 November is Kanakadasa Jayanti on the Karnataka list. If the University holds class, switch to the class-day clock."),
+        row("8:15–10:00 am", paper + " · diagrams", title + ". " + topic),
+        row("10:00–10:20 am", "Break", "Eat if you have not. Stretch.", true),
+        row("10:20 am–12:00 pm", paper + " · questions", next),
+        row("12:00–1:30 pm", "Lunch and rest", "A holiday includes the rest.", true),
+        row("1:30–3:10 pm", paper + " · weak pages", extra || "Only the pages you marked this morning. No new unit."),
+        row("3:10–3:25 pm", "Close", "Error log, tick the day, and stop by 3:30 pm.")
+      ];
+    }
+    const parts = paper.split("+").map((s) => s.trim()).filter((s) => s.indexOf("B1.") === 0);
+    if (parts.length === 2) {
+      return [
+        row("7:30–8:00 am", "Blank page", "Unit headings of " + parts[0] + " and " + parts[1] + ", from memory."),
+        row("8:00–9:30 am", parts[0] + " · drawings", topic),
+        row("9:30–9:45 am", "Break", "Water.", true),
+        row("9:45–11:15 am", parts[0] + " · functions", next),
+        row("11:15–11:30 am", "Break", "Snack.", true),
+        row("11:30 am–1:00 pm", parts[1] + " · drawings", "External ear, middle ear, cochlea, pathway."),
+        row("1:00–2:00 pm", "Lunch", "Away from the desk.", true),
+        row("2:00–3:30 pm", parts[1] + " · functions", extra || "One sentence under each drawing."),
+        row("3:30–3:45 pm", "Break", "Walk.", true),
+        row("3:45–4:45 pm", "Timed notes", "Five short notes, book closed, then mark them."),
+        row("7:30–8:10 pm", "Gap list", "The three misses only. No new chapter. Lights out by 10:30 pm.")
+      ];
+    }
+    return [
+      row("7:30–8:00 am", "Blank map", paper + ". Write the unit headings you remember."),
+      row("8:00–9:20 am", paper + " · block 1", title + ". " + topic),
+      row("9:20–9:35 am", "Break", "Stand up.", true),
+      row("9:35–10:55 am", paper + " · block 2", next),
+      row("10:55–11:10 am", "Break", "Water and a short walk.", true),
+      row("11:10 am–12:30 pm", paper + " · block 3", extra || "Remaining units. Gaps only, no new textbook."),
+      row("12:30–1:30 pm", "Lunch", "No notes at the table.", true),
+      row("1:30–2:50 pm", "Diagrams", "Redraw the two figures you would need in the hall."),
+      row("2:50–3:05 pm", "Break", "Outside.", true),
+      row("3:05–4:15 pm", "Timed paper", "Short notes, 50-mark pace. Stop when the clock stops."),
+      row("4:15–4:30 pm", "Mark", "List the gaps. Do not open a new chapter."),
+      row("7:30–8:15 pm", "Evening recall", "Read the gap list only. In bed by 10:30 pm.")
+    ];
+  }
 
   function campaign(spec) {
     return {
@@ -113,7 +219,8 @@ const STUDY_PLAN = {
           paper: row[0],
           title: row[1],
           focus: row[2],
-          recall: row[3]
+          recall: row[3],
+          periods: periodsFor(iso, kind, row[0], row[1], row[2])
         };
       })
     };
@@ -125,7 +232,7 @@ const STUDY_PLAN = {
       semester: 1,
       name: "Semester I",
       short: "Sem I",
-      blurb: "The Precision Clinicians, first year. Four theory papers: B1.1 to B1.4. B1.5 and B1.6 are practicals and stay on the clinical timetable.",
+      blurb: "Semester I theory only. College is 8:30 am to 3:30 pm. On a class day the self-study clock is 6:15–7:00 am, 5:15–7:25 pm and 8:05–9:05 pm. B1.5 and B1.6 stay on the practical roster.",
       papers: [
         ["B1.1", "Introduction to Speech-language Pathology", "Theory 50 + IA 25"],
         ["B1.2", "Introduction to Audiology", "Theory 50 + IA 25"],
@@ -165,95 +272,5 @@ const STUDY_PLAN = {
         , "Pack the kit. Write tomorrow's wake-up time. Close the books."]
       ]
     }),
-    campaign({
-      id: "sem3",
-      semester: 3,
-      name: "Semester III",
-      short: "Sem III",
-      blurb: "Second-year theory papers B3.1 to B3.4. B3.5 is the minor optional and is examined by the institution. B3.6 and B3.7 are clinicals.",
-      papers: [
-        ["B3.1", "Child Language Disorders", "Practical 25 + IA 25 + Theory 50"],
-        ["B3.2", "Amplification Devices", "Practical 25 + IA 25 + Theory 50"],
-        ["B3.3", "Electronics and Acoustics", "IA 25 + Theory 50"],
-        ["B3.4", "Psychology for Speech and Hearing", "IA 25 + Theory 50"]
-      ],
-      rows: [
-        ["B3.1", "How children come to language", ["Biological, cognitive and linguistic accounts, in one paragraph each.", "Birth to two years: prelinguistic to symbolic.", "Bilingual acquisition and the factors that change the rate."], "Contrast two theories of acquisition with one example each."],
-        ["B3.2", "Hearing-aid types", ["Microphone, amplifier, receiver, battery.", "Body, BTE, RIC, ITE, ITC, CIC, IIC.", "Hard-wired, loop, FM and infrared group systems."], "Classify six aids by where they sit, and name one group system."],
-        ["B3.3", "Signals and basic electronics", ["Charge, current, voltage and a simple signal.", "What a transducer does in a speech or hearing instrument.", "One sketch of a signal path from microphone to output."], "Draw a signal path and name the quantity at each stage."],
-        ["B3.1 + B3.2", "Boss: theory of acquisition, and the aid family", ["One acquisition theory, taught aloud.", "A table of hearing-aid styles with one use and one limit.", "Five terms you missed, into the error log."], "Fill the aid table from memory, then state one acquisition theory."],
-        ["B3.4", "What psychology is doing in this course", ["Scope of psychology and of clinical psychology.", "Why speech and hearing practice needs both.", "Terms you will meet again in assessment and learning."], "Give two reasons a clinician needs a psychological frame, with examples."],
-        ["B3.1", "How language disorders present", ["DSM-5 and ICD-10 as classification frames.", "Characteristics, language features, causes and comorbidities.", "Keep the conditions in a comparison table, not a paragraph."], "Complete a four-column table for two conditions, book closed."],
-        ["B3.2", "Compression and signal processing", ["Peak clipping versus compression.", "BILL, TILL, PILL, WDRC and syllabic compression.", "Directionality, noise reduction, frequency lowering."], "Say what WDRC changes, and one listening problem it is meant to ease."],
-        ["B3.3", "Acoustics you will be asked to define", ["Frequency, intensity, wavelength and resonance.", "Filters: what they pass and what they stop.", "One speech-acoustic example for each term."], "Define resonance and give one speech example."],
-        ["B3.4", "How a psychological assessment starts", ["Case history and mental-status examination.", "Clinical interview and clinical observation.", "What you may and may not conclude from a single sitting."], "List the headings of a mental-status examination."],
-        ["B3.1", "Language sample and informal assessment", ["Formal versus informal tools.", "Play, mother-child interaction and the language sample.", "Analysis of phonology, morphology, syntax and pragmatics."], "Write five rules you will follow while collecting a language sample."],
-        ["B3.3 + B3.4", "Boss: signal chain and one learning idea", ["A block diagram of a recording chain.", "One principle of learning you could use in therapy.", "Error log from both papers."], "Draw the chain, then state one learning principle in a therapy sentence."],
-        ["B3.2", "Electroacoustic measures", ["Why EAM is done, and the bench setup.", "OSPL90, gain, full-on gain, frequency range, distortion.", "What changes the numbers, including a digital aid."], "Define OSPL90 and say why a clinician looks at it before a fitting."],
-        ["B3.1", "Intervention techniques", ["Purpose, goals and the choice of language.", "Incidental teaching, self-talk, parallel talk.", "Multicultural care in the activity, not as a slogan."], "Script a six-line incidental-teaching episode."],
-        ["B3.3", "Recording and digital signals", ["Sampling and why the rate matters.", "What a digital signal keeps and what it can lose.", "Storage of clinical recordings: principle, not a product manual."], "Explain sampling rate with a one-line consequence of setting it too low."],
-        ["B3.4", "Development that language sits on", ["Cognitive and emotional development at the ages you assess.", "What a delay in that domain does to a language session.", "One milestone table, birth to school age."], "Name one cognitive and one emotional milestone you would ask about at age 3."],
-        ["B3.2", "Selection, programming and couplers", ["Kanakadasa Jayanti: confirm the University holiday list.", "If it is free: candidacy, programming targets, and ear-mould acoustics.", "If class is held: evening rhythm on the same topics."], "Give one reason to change an ear mould, and one programming choice that follows."],
-        ["B3.1", "AAC, the team and the family", ["Aided and unaided AAC, and when each is considered.", "Medical, physio, occupational therapy and education on the team.", "Caregivers, rights and concessions."], "Name three team members and the question you would ask each."],
-        ["All four", "Boss: twenty definitions", ["Five terms from each theory paper.", "Closed book first, then mark.", "Misses go to 3 December."], "Twenty definitions, at least fifteen correct."],
-        ["B3.2", "Programming choices", ["What you match to the audiogram and to the patient's report.", "One feature you would verify, not just enable.", "A sentence of counselling that matches the feature."], "Write a four-line fitting note: audiogram, feature, verification, counsel."],
-        ["B3.3", "Information technology in the clinic", ["What a clinical record must keep: identity, date, stimulus, response.", "Backup and privacy, in principle.", "One way IT changes audiometry or speech analysis."], "List five fields a clinical recording file must contain."],
-        ["B3.4", "Learning and behaviour", ["Classical and operant conditioning, with one clinic example each.", "Acquisition, extinction and maintenance.", "Problem-behaviour assessment versus skill assessment."], "Give one operant procedure you could use for a therapy target, and its risk."],
-        ["Weak units", "Redo the red marks", ["One weak unit from each paper.", "No new chapter.", "One diagram or table redrawn."], "Teach the weakest unit aloud for five minutes."],
-        ["B3.3", "Instruments you must recognise", ["Microphones, speakers, audiometers and analysers, as blocks.", "What each block measures.", "One artefact that ruins the measure."], "Name the instrument, the quantity, and one artefact, for three tests."],
-        ["B3.4", "Neuropsychology and counselling", ["What a neuropsychological screen is for, and what it is not.", "Guidance, counselling and psychotherapy: the difference.", "One counselling skill you can use this semester."], "Contrast guidance and counselling with one clinic example."],
-        ["Two papers", "Boss: timed short notes", ["The two papers you trust least.", "Ten short notes, 90 minutes.", "Mark against your notes."], "Finish and score the ten notes."],
-        ["B3.1", "Camp: child language", ["Bases, characteristics, assessment, intervention, AAC.", "One language-sample plan and one technique script.", "Gaps only. No new textbook."], "A closed-book outline of assessment, then of one technique."],
-        ["B3.2", "Camp: hearing aids", ["Types, processing, EAM, selection, ear moulds.", "One comparison table and one EAM definition set.", "A four-line fitting note from a sketched audiogram."], "OSPL90, one compression type, and one mould choice, from memory."],
-        ["B3.3", "Camp: electronics and acoustics", ["Signal path, acoustic definitions, sampling, instrumentation.", "Three block diagrams.", "A glossary of fifteen terms."], "Three diagrams, labelled, book closed."],
-        ["B3.4", "Exam eve: psychology, then stop", ["A full pass of the five units before 4:30 pm.", "One mixed set from B3.1 to B3.3 only if time remains.", "No new topics after 6:00 pm. Pack the kit and sleep."]
-        , "Close the books at 6:00 pm. Write the wake-up time."]
-      ]
-    }),
-    campaign({
-      id: "sem5",
-      semester: 5,
-      name: "Semester V",
-      short: "Sem V",
-      blurb: "Third-year theory papers B5.1 to B5.4. B5.5 is the minor optional. B5.6 and B5.7 are clinicals and stay on the posting roster.",
-      papers: [
-        ["B5.1", "Voice Disorders and Laryngectomy", "Practical 25 + IA 25 + Theory 50"],
-        ["B5.2", "Motor Speech Disorders in Children", "Practical 25 + IA 25 + Theory 50"],
-        ["B5.3", "Paediatric Audiology", "Practical 25 + IA 25 + Theory 50"],
-        ["B5.4", "Aural Rehabilitation", "Practical 25 + IA 25 + Theory 50"]
-      ],
-      rows: [
-        ["B5.1", "Voice parameters and the mechanism", ["Parameters of voice, and the respiratory-laryngeal frame.", "Pitch and loudness change, registers, quality and resonance.", "One physiologic, one acoustic and one aerodynamic correlate."], "Define pitch, loudness and quality, and name the mechanism that changes each."],
-        ["B5.2", "Childhood dysarthria and apraxia, apart", ["Neural maturation and sensorimotor integration, in brief.", "Childhood dysarthria, including cerebral palsy types at definition level.", "Childhood apraxia of speech: definition and characteristics."], "Three points that separate childhood dysarthria from childhood apraxia."],
-        ["B5.3", "How hearing behaviour develops", ["Embryology of the auditory system, clinical relevance only.", "Maturation and neuroplasticity.", "Prenatal, newborn, infant and toddler auditory behaviour."], "Describe one auditory behaviour at birth and one at six months."],
-        ["B5.1 + B5.2", "Boss: a voice scale and a differential", ["GRBAS: one line on each letter.", "A differential list: dysarthria, apraxia, phonological disorder.", "Error log."], "Score a described voice on GRBAS, and give the differential in three lines."],
-        ["B5.4", "What hearing loss does to communication", ["Sensitive period for auditory development.", "Impact on spoken language, parent-child talk and quality of life.", "Education, employment and cost, at the level of this unit."], "Give three impacts of early hearing loss, each in a different domain."],
-        ["B5.1", "Causes and voice-disorder groups", ["Phonotrauma, medical causes and primary disorder.", "Functional and psychogenic presentations.", "Congenital voice disorders, as a short list."], "Sort six causes into organic or functional, and justify two of them."],
-        ["B5.2", "Assessing the motor speech system", ["Case history and developmental neurological signs.", "Respiration, phonation, resonance and articulation: what you watch.", "Cognitive-linguistic and language checks that travel with the motor exam."], "List the speech subsystems and one task for each."],
-        ["B5.3", "Early hearing detection", ["Incidence, and congenital versus acquired.", "Principles of early hearing detection and intervention.", "Joint Committee position statements: what changed, in outline."], "State three principles of early hearing detection and intervention."],
-        ["B5.4", "Communication options", ["Parent counselling before the choice.", "Oral, manual, cued speech and total communication.", "Auditory-oral and auditory-verbal: the difference."], "Contrast auditory-verbal therapy with a total-communication approach in five lines."],
-        ["B5.1", "Voice assessment", ["Referral, medical examination and the team.", "ICF and a clinical voice protocol.", "GRBAS and CAPE-V. Instrumental measures in principle, not as a brand."], "List the components of a voice assessment protocol in order."],
-        ["B5.3 + B5.4", "Boss: screening versus teaching listening", ["One screening test and what a pass does not mean.", "One point you would tell a parent this week.", "Error log."], "Explain a refer result to a parent, without promising a diagnosis."],
-        ["B5.2", "Managing childhood dysarthria", ["Team, then the subsystems.", "Prosthetic help and AAC.", "One goal written so a parent can see it."], "Write one subsystem goal with the task, the cue and the success mark."],
-        ["B5.1", "Voice therapy", ["Goals and approaches.", "Vocal hygiene.", "Symptomatic and psychological approaches, and when each leads."], "Write a five-point vocal-hygiene counsel for a teacher."],
-        ["B5.3", "Newborn and infant screening", ["Behavioural observation and its limits.", "Objective screens, including OAE and ABR as screens.", "Universal newborn hearing screening: India and the global picture."], "Give one strength and one limit of OAE as a newborn screen."],
-        ["B5.4", "Auditory learning", ["Auditory training and auditory-verbal therapy, as terms.", "Home and classroom listening conditions.", "Factors that change the outcome."], "List four changes that make a classroom easier to listen in."],
-        ["B5.1", "Laryngectomy, on the holiday", ["Confirm Kanakadasa Jayanti against the University list.", "Causes, surgery types, and the team.", "Pre- and post-operative communication assessment, and alaryngeal options."], "Compare two alaryngeal speech options on voice source, training and a limit."],
-        ["B5.2", "Treating childhood apraxia", ["Principles of motor learning.", "Dynamic temporal and tactile cueing.", "PROMPT, signed cues and cued speech, at introduction level."], "State three principles of motor learning and one therapy step that uses them."],
-        ["All four", "Boss: twenty definitions", ["Five terms from each paper.", "Closed book, then mark.", "Misses feed 3 December."], "Twenty definitions, at least fifteen correct."],
-        ["B5.3", "Paediatric assessment battery", ["Behavioural observation, visual reinforcement and play audiometry.", "Speech audiometry modifications for children.", "Immittance, high-frequency probe tone, and the cross-check."], "Pick a test battery for a two-year-old and say why each test is there."],
-        ["B5.2", "Feeding and swallowing in children", ["Phases, neural control and the related reflexes.", "Signs of paediatric dysphagia.", "Assessment and the treatment frame: position, oral-motor, non-oral feeding."], "List the swallow phases and one paediatric red flag."],
-        ["B5.4", "Speech reading", ["Why it is needed, and how visible speech sounds differ.", "Analytic and synthetic tests and training.", "Adults and children: what you change."], "Contrast analytic and synthetic speech-reading practice with one task each."],
-        ["Weak units", "Redo the red marks", ["One weak unit from each paper.", "No new chapter.", "One protocol or diagram redrawn."], "Teach the weakest unit aloud for five minutes."],
-        ["B5.3", "Special populations", ["Auditory neuropathy spectrum disorder.", "Additional needs, central auditory processing, and functional hearing loss.", "What the cross-check changes in each."], "Give the cross-check pattern you expect in auditory neuropathy."],
-        ["B5.4", "Additional needs", ["Hearing loss with blindness or cognitive disability.", "Management frames for auditory neuropathy and central auditory processing.", "Tinnitus and hyperacusis, at the level of this unit."], "Name one change in management when hearing loss is not the only disability."],
-        ["Two papers", "Boss: timed short notes", ["The two papers you trust least.", "Ten short notes, 90 minutes.", "Mark them yourself."], "Finish and score the ten notes."],
-        ["B5.1", "Camp: voice and laryngectomy", ["Mechanism, disorders, assessment, therapy, laryngectomy.", "One GRBAS practice and one alaryngeal comparison.", "Gaps only."], "A closed-book voice protocol, then two alaryngeal options."],
-        ["B5.2", "Camp: motor speech in children", ["Differential diagnosis, assessment, dysarthria, apraxia, swallow.", "One subsystem plan and one motor-learning step.", "A feeding red-flag list."], "Differential diagnosis in six lines, book closed."],
-        ["B5.3", "Camp: paediatric audiology", ["Development, early identification, screening, assessment, special populations.", "One age-wise test table.", "One parent explanation of a refer."], "The age-wise table, from memory."],
-        ["B5.4", "Exam eve: aural rehabilitation, then stop", ["Communication options, auditory learning, speech reading, additional needs.", "A mixed 40-minute set from the other three papers only if the B5.4 pass is done.", "No new topics after 6:00 pm."]
-        , "Stop at 6:00 pm. Pack the kit. Set the alarm."]
-      ]
-    })
   ];
 })();

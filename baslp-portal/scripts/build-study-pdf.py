@@ -85,7 +85,7 @@ def main():
     pdf.set_font("Serif", "", 18)
     pdf.cell(0, 10, "Self-study plan for the theory examinations", align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Noto", "", 10)
-    pdf.cell(0, 6, "B.ASLP  ·  Semesters I, III and V  ·  December 2026 session", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, "B.ASLP  ·  Semester I theory  ·  B1.1 to B1.4  ·  December 2026", align="C", new_x="LMARGIN", new_y="NEXT")
 
     pdf.set_y(50)
     pdf.set_text_color(*INK)
@@ -101,19 +101,20 @@ def main():
     pdf.ln(1)
     write_wrapped(
         pdf,
-        "This booklet is a 29-day preparation rotation, from Thursday 12 November 2026 to Thursday 10 December 2026. "
-        "It is not the examination timetable. When the Controller publishes the order of papers, keep the same topics "
-        "and move the final camp days (7 to 10 December) so the last full day for a paper falls just before that paper.",
+        "This booklet is the Semester I self-study timetable, Thursday 12 November 2026 to Thursday 10 December 2026. "
+        "It is not the examination timetable. College remains 8:30 am to 3:30 pm. In each day's table, a line marked "
+        "[college] is a meal, the bus or a class, not a study block. When the Controller publishes the paper order, "
+        "move 7 to 10 December so each paper's full day falls just before that paper.",
         size=11,
         h=5.6,
     )
 
     block_title(pdf, "How to use the days")
     kind_label = {
-        "evening": "Class evenings (most weekdays), 6:30 to 9:05 pm",
-        "boss": "Sunday boss, about 8:30 am to 4:30 pm",
+        "evening": "Class day (Monday to Saturday, except 27 November)",
+        "boss": "Sunday",
         "holiday": "Friday 27 November, if the University confirms the holiday",
-        "camp": "Final camp, 7 to 10 December",
+        "camp": "Study camp, 7 to 9 December (10 December has its own clock)",
     }
     for key, label in kind_label.items():
         write_wrapped(pdf, label, size=11, style="B", color=NAVY, h=5.4)
@@ -165,15 +166,26 @@ def main():
             pdf.set_text_color(*INK)
             pdf.set_font("Noto", "B", 11)
             pdf.multi_cell(0, 6, lv["title"], new_x="LMARGIN", new_y="NEXT")
-            pdf.set_font("Noto", "", 10)
-            pdf.set_text_color(*INK)
-            for line in lv["focus"]:
+            pdf.set_font("Noto", "B", 9)
+            pdf.set_text_color(*MUTED)
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(0, 5, "Time          Block                    What to do", new_x="LMARGIN", new_y="NEXT")
+            for slot in lv.get("periods") or []:
+                if pdf.get_y() > 265:
+                    pdf.add_page()
+                mark = "[college]  " if slot.get("hold") else "            "
                 pdf.set_x(pdf.l_margin)
-                pdf.multi_cell(0, 5, "•  " + line, new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("Noto", "B", 9)
+                pdf.set_text_color(*NAVY)
+                pdf.multi_cell(0, 4.6, f"{slot['time']}   {slot['block']}", new_x="LMARGIN", new_y="NEXT")
+                pdf.set_x(pdf.l_margin)
+                pdf.set_font("Noto", "", 9)
+                pdf.set_text_color(*MUTED if slot.get("hold") else INK)
+                pdf.multi_cell(0, 4.6, mark + slot["work"], new_x="LMARGIN", new_y="NEXT")
             pdf.set_text_color(*NAVY)
             pdf.set_font("Noto", "B", 10)
             pdf.set_x(pdf.l_margin)
-            pdf.multi_cell(0, 5.2, "Tick this level only after: " + lv["recall"], new_x="LMARGIN", new_y="NEXT")
+            pdf.multi_cell(0, 5.2, "Tick this day only after: " + lv["recall"], new_x="LMARGIN", new_y="NEXT")
             pdf.set_text_color(*INK)
 
     pdf.add_page()

@@ -325,8 +325,8 @@ main section[id] { scroll-margin-top: 7.25rem; }
 
 .quest-layout { margin-top: 1.5rem; display: grid; gap: 1.25rem; }
 @media (min-width: 1024px) {
-  .quest-layout { grid-template-columns: minmax(0, 1fr) 22rem; align-items: start; }
-  .quest-card { position: sticky; top: 7.2rem; }
+  .quest-layout { grid-template-columns: minmax(0, 0.9fr) minmax(22rem, 34rem); align-items: start; }
+  .quest-card { position: sticky; top: 7.2rem; max-height: calc(100vh - 8rem); overflow: auto; }
 }
 
 .quest-trail { list-style: none; margin: 0; padding: 0 0 0 0.2rem; position: relative; }
@@ -381,10 +381,21 @@ main section[id] { scroll-margin-top: 7.25rem; }
   margin: 0.9rem 0 0.35rem;
   font-size: 0.72rem; letter-spacing: .08em; text-transform: uppercase; color: #9F1239;
 }
-.quest-clock, .quest-focus { list-style: none; padding: 0; margin: 0; }
-.quest-clock li { display: grid; grid-template-columns: 8.5rem minmax(0,1fr); gap: 0.5rem; font-size: 0.85rem; padding: 0.28rem 0; }
-.quest-clock li span:first-child { font-weight: 700; color: #1E3A8A; }
-.dark .quest-clock li span:first-child { color: #93C5FD; }
+.quest-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 0.35rem; }
+.quest-table th {
+  text-align: left; font-size: 0.68rem; letter-spacing: .06em; text-transform: uppercase;
+  color: #6B7280; padding: 0.3rem 0.35rem 0.45rem; font-weight: 700;
+}
+.quest-table td { vertical-align: top; padding: 0.42rem 0.35rem; border-top: 1px solid #F3F4F6; }
+.quest-table td:first-child { font-weight: 700; color: #1E3A8A; white-space: nowrap; width: 7.6rem; }
+.quest-table td:nth-child(2) { font-weight: 700; width: 7.2rem; }
+.quest-table tr.is-hold td { color: #6B7280; background: #F9FAFB; }
+.quest-table tr.is-study td:nth-child(2) { color: #800000; }
+.dark .quest-table td { border-color: rgba(255,255,255,.08); }
+.dark .quest-table td:first-child { color: #93C5FD; }
+.dark .quest-table tr.is-hold td { color: #9CA3AF; background: rgba(0,0,0,.18); }
+.dark .quest-table tr.is-study td:nth-child(2) { color: #FCA5A5; }
+.quest-focus { list-style: none; padding: 0; margin: 0; }
 .quest-focus { list-style: disc; padding-left: 1.1rem; }
 .quest-focus li { margin: 0.25rem 0; font-size: 0.9rem; }
 .quest-recall {

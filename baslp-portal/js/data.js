@@ -3698,7 +3698,7 @@ const NOTICES = [
   },
   {
     "tag": "QUEST",
-    "text": "Exam Quest is open: 29 self-study levels from 12 November to 10 December. Tick each level on the map, or download the PDF."
+    "text": "Semester I self-study timetable: 6:15 am recall, college 8:30–3:30, then 5:15–9:05 pm. 12 November to 10 December. Download the PDF from the timetable."
   },
   {
     "tag": "2ND IA",
@@ -5268,7 +5268,7 @@ const DOCS = [
   {
     "title": "Self-study plan, December 2026 theory exams",
     "issuer": "Class Coordinator, Department of Audiology & SLP",
-    "note": "Semesters I, III and V | 12 November to 10 December 2026 | preparation rotation, not the CoE timetable",
+    "note": "Semester I theory, B1.1 to B1.4 | clocked self-study around college | 12 November to 10 December 2026",
     "file": "BASLP_Self_Study_Plan_December_2026.pdf"
   },
   {
