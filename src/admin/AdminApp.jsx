@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { MotionConfig, motion } from 'motion/react';
 import { Banknote, CalendarCheck, ClipboardList, Globe, LayoutDashboard, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react';
 
 import { api } from './api.js';
@@ -82,8 +83,15 @@ export default function AdminApp() {
     refresh();
   }, []);
 
-  if (state.loading) return <p className="p-10 text-center text-clinic-clay">Loading…</p>;
-  if (!state.user) return state.needsSetup ? <Setup onDone={refresh} /> : <Login onDone={refresh} />;
+  if (state.loading) return <p className="admin-app min-h-screen p-10 text-center text-lg text-clinic-clay">Loading…</p>;
+  if (!state.user) {
+    const screen = state.needsSetup ? <Setup onDone={refresh} /> : <Login onDone={refresh} />;
+    return (
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        {screen}
+      </motion.div>
+    );
+  }
 
   const user = state.user;
   const isPrint = /\/print$/.test(route);
@@ -112,11 +120,11 @@ function Shell({ user, route, onLogout, children }) {
           key={path}
           href={`#${path}`}
           onClick={() => setOpen(false)}
-          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-            active(path) ? 'bg-clinic-ivory text-clinic-maroon' : 'text-clinic-ivory/80 hover:bg-white/10 hover:text-clinic-ivory'
+          className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-base font-semibold transition ${
+            active(path) ? 'bg-clinic-saffronSoft text-clinic-maroonDeep' : 'text-[#fff6ee] hover:bg-white/10'
           }`}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-5 w-5" />
           {label}
         </a>
       ))}
@@ -124,27 +132,36 @@ function Shell({ user, route, onLogout, children }) {
   );
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[250px_1fr]">
-      <aside className="no-print hidden min-h-screen flex-col bg-clinic-maroonDeep p-5 text-clinic-ivory lg:flex">
+    <div className="admin-app min-h-screen lg:grid lg:grid-cols-[18.5rem_1fr]">
+      <aside className="no-print hidden min-h-screen flex-col bg-clinic-maroonDeep p-5 text-[#fff6ee] lg:flex">
         <Brand />
         <div className="mt-8 flex-1">{nav}</div>
         <UserBox user={user} onLogout={onLogout} />
       </aside>
 
-      <header className="no-print flex items-center justify-between bg-clinic-maroonDeep px-4 py-3 text-clinic-ivory lg:hidden">
+      <header className="no-print flex items-center justify-between bg-clinic-maroonDeep px-4 py-3 text-[#fff6ee] lg:hidden">
         <Brand />
         <button type="button" onClick={() => setOpen(!open)} aria-label="Menu" className="rounded-lg p-2 hover:bg-white/10">
           {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
       </header>
       {open && (
-        <div className="no-print bg-clinic-maroonDeep px-4 pb-4 text-clinic-ivory lg:hidden">
+        <div className="no-print bg-clinic-maroonDeep px-4 pb-4 text-[#fff6ee] lg:hidden">
           {nav}
           <div className="mt-4"><UserBox user={user} onLogout={onLogout} /></div>
         </div>
       )}
 
-      <main className="min-w-0 px-4 py-6 sm:px-8 sm:py-8">{children}</main>
+      <main className="min-w-0 px-4 py-6 sm:px-8 sm:py-8">
+        <motion.div
+          key={route}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {children}
+        </motion.div>
+      </main>
     </div>
   );
 }
@@ -154,8 +171,8 @@ function Brand() {
     <a href="#/" className="flex items-center gap-3">
       <img src="/clinic-logo-mobile.png" alt="" className="h-10 w-10 rounded-xl bg-clinic-ivory object-contain p-1" />
       <div className="leading-tight">
-        <p className="text-sm font-semibold">Sri Rudra Clinic</p>
-        <p className="text-xs text-clinic-saffronSoft/80">Staff portal</p>
+        <p className="text-base font-semibold">Sri Rudra Clinic</p>
+        <p className="text-sm text-clinic-saffronSoft">Staff portal</p>
       </div>
     </a>
   );
@@ -163,13 +180,13 @@ function Brand() {
 
 function UserBox({ user, onLogout }) {
   return (
-    <div className="rounded-xl bg-white/5 p-3 text-sm">
+    <div className="rounded-xl bg-white/10 p-3.5 text-base">
       <p className="font-semibold">{user.full_name}</p>
-      <p className="text-xs text-clinic-saffronSoft/80">{ROLE_LABEL[user.role]}</p>
-      <div className="mt-3 flex gap-2">
+      <p className="text-sm text-clinic-saffronSoft">{ROLE_LABEL[user.role]}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
         <ChangePasswordButton />
-        <a href="/desk.html" className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-clinic-ivory/80 hover:bg-white/10">Offline desk</a>
-        <button type="button" onClick={onLogout} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-clinic-ivory/80 hover:bg-white/10">
+        <a href="/desk.html" className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm text-[#fff6ee] hover:bg-white/10">Offline desk</a>
+        <button type="button" onClick={onLogout} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm text-[#fff6ee] hover:bg-white/10">
           <LogOut className="h-3.5 w-3.5" /> Log out
         </button>
       </div>
@@ -196,7 +213,7 @@ function ChangePasswordButton() {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-clinic-ivory/80 hover:bg-white/10">
+      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm text-[#fff6ee] hover:bg-white/10">
         <ShieldCheck className="h-3.5 w-3.5" /> Password
       </button>
       {open && (
@@ -219,17 +236,17 @@ function ChangePasswordButton() {
 
 function AuthCard({ title, subtitle, children }) {
   return (
-    <div className="grid min-h-screen place-items-center bg-clinic-parchment p-4">
+    <div className="admin-app grid min-h-screen place-items-center p-4">
       <div className="a-card w-full max-w-md p-8">
         <div className="flex items-center gap-3">
           <img src="/clinic-logo-mobile.png" alt="" className="h-12 w-12 rounded-xl object-contain" />
           <div>
             <p className="font-semibold text-clinic-maroon">Sri Rudra Speech & Hearing Clinic</p>
-            <p className="text-xs text-clinic-clay">Staff portal</p>
+            <p className="text-sm text-clinic-clay">Staff portal</p>
           </div>
         </div>
-        <h1 className="mt-6 font-heading text-2xl font-semibold text-clinic-ink">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-clinic-clay">{subtitle}</p>}
+        <h1 className="mt-6 font-heading text-3xl font-semibold text-clinic-ink">{title}</h1>
+        {subtitle && <p className="mt-1 text-base text-clinic-clay">{subtitle}</p>}
         <div className="mt-6">{children}</div>
       </div>
     </div>
@@ -285,7 +302,7 @@ function Login({ onDone }) {
         </Field>
         <Alert>{error}</Alert>
         <button type="submit" className="a-btn-primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        <a href="/" className="text-center text-xs text-clinic-clay hover:text-clinic-maroon">← Back to clinic website</a>
+        <a href="/" className="text-center text-base font-semibold text-clinic-maroon hover:text-clinic-maroonDeep">← Back to clinic website</a>
       </form>
     </AuthCard>
   );
