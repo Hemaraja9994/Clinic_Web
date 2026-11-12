@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { MotionConfig, motion } from 'motion/react';
-import { Banknote, CalendarCheck, ClipboardList, Globe, LayoutDashboard, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react';
+import { Banknote, CalendarCheck, ClipboardList, Globe, Handshake, LayoutDashboard, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react';
 
 import { api } from './api.js';
 import { Alert, Field, Input } from './components/ui.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Appointments from './pages/Appointments.jsx';
 import Collections from './pages/Collections.jsx';
+import CrmContact from './pages/CrmContact.jsx';
+import CrmContacts from './pages/CrmContacts.jsx';
+import CrmFollowUps from './pages/CrmFollowUps.jsx';
+import CrmPipeline from './pages/CrmPipeline.jsx';
 import Patients from './pages/Patients.jsx';
 import PatientDetail from './pages/PatientDetail.jsx';
 import ReportEditor from './pages/ReportEditor.jsx';
@@ -33,6 +37,7 @@ function useHashRoute() {
 const NAV = [
   ['/', 'Dashboard', LayoutDashboard, ['admin', 'therapist', 'reception']],
   ['/appointments', 'Appointments', CalendarCheck, ['admin', 'therapist', 'reception']],
+  ['/crm', 'CRM – leads', Handshake, ['admin', 'therapist', 'reception']],
   ['/collections', 'Collections', Banknote, ['admin', 'therapist', 'reception']],
   ['/patients', 'Patients', ClipboardList, ['admin', 'therapist', 'reception']],
   ['/content', 'Website content', Globe, ['admin']],
@@ -46,6 +51,10 @@ function matchPage(route, user) {
   if (route === '/') return <Dashboard />;
   if (route === '/appointments') return <Appointments />;
   if (route === '/collections') return <Collections />;
+  if (route === '/crm') return <CrmPipeline />;
+  if (route === '/crm/followups') return <CrmFollowUps />;
+  if (route === '/crm/contacts') return <CrmContacts />;
+  if ((m = route.match(/^\/crm\/contacts\/(\d+)$/))) return <CrmContact id={m[1]} />;
   if (route === '/patients') return <Patients />;
   if ((m = route.match(/^\/patients\/(\d+)$/))) return <PatientDetail id={m[1]} />;
   if (user.role !== 'reception') {

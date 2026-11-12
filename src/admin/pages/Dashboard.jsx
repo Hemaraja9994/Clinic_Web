@@ -4,7 +4,9 @@ import { CalendarCheck, ClipboardList, FileText, Inbox } from 'lucide-react';
 import { api, formatDate, todayISO } from '../api.js';
 import { timeKey } from '../constants.js';
 import { Alert, PageHeader, StatusBadge } from '../components/ui.jsx';
+import { ContactLinks, NextAction } from '../components/crm.jsx';
 import { useUser } from '../session.js';
+import { formatRupees } from '../../shared/crm.js';
 import DayNote from './DayNote.jsx';
 
 export default function Dashboard() {
@@ -53,7 +55,49 @@ export default function Dashboard() {
           </div>
         )}
       </section>
+
+      <CrmDue />
     </>
+  );
+}
+
+// CRM follow-ups that are overdue or due today. Hidden if the CRM is not set up yet.
+function CrmDue() {
+  const today = todayISO();
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    api(`/crm/summary?today=${today}`).then(setData).catch(() => setData(null));
+  }, [today]);
+
+  if (!data) return null;
+  const { overdue, today: dueToday } = data.followUps;
+  return (
+    <section className="a-card mt-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-heading text-xl font-semibold text-clinic-maroon">CRM follow-ups due</h2>
+        <a href="#/crm/followups" className="a-btn-secondary min-h-8 px-3 text-xs">Open follow-ups</a>
+      </div>
+      <p className="mt-1 text-sm text-clinic-clay">
+        <span className={overdue > 0 ? 'font-semibold text-[#b42318]' : ''}>{overdue} overdue</span> · {dueToday} today ·{' '}
+        {data.leadsThisMonth} new {data.leadsThisMonth === 1 ? 'lead' : 'leads'} this month · won this month: {data.wonThisMonth.count} ({formatRupees(data.wonThisMonth.value)})
+      </p>
+      {data.due.length === 0 ? (
+        <p className="mt-3 text-sm text-clinic-clay">Nothing due. Well done.</p>
+      ) : (
+        <ul className="mt-3 divide-y divide-[#eadfce]">
+          {data.due.map((a) => (
+            <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <a href={`#/crm/contacts/${a.contact_id}`} className="font-semibold text-clinic-maroon underline">{a.contact_name}</a>
+                <NextAction due={a.due_date} body={a.body} kind={a.kind} today={today} />
+              </div>
+              <ContactLinks phone={a.contact_phone} name={a.contact_name} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 

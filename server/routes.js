@@ -17,6 +17,16 @@ import {
   verifyPassword,
 } from './auth.js';
 import { filterCollections, normalizeCollection, slugClinicId } from '../src/shared/collectionCatalog.js';
+import {
+  CLOSED_STAGE_IDS,
+  addDays,
+  indiaToday,
+  normalizeActivity,
+  normalizeContact,
+  normalizeDeal,
+  stageChangeNote,
+  websiteLead,
+} from '../src/shared/crm.js';
 import { HttpError, clientIp, isDate, json, readJson, required, text } from './http.js';
 
 const ALL_STAFF = ['admin', 'therapist', 'reception'];
@@ -176,7 +186,46 @@ async function publicBooking({ db, env, request }) {
     ).bind(name, age, phone, service, concern, body.date, rawTime, 'website').run();
   } catch {}
 
+  // The booking also becomes a CRM lead with a "call to confirm" follow-up (best effort, like the copy above).
+  try {
+    await leadFromWebsiteBooking(db, { name, age, phone, service, concern, date: body.date, time: rawTime });
+  } catch (err) {
+    console.error('CRM: could not add the website lead', err?.message);
+  }
+
   return json({ ok: true, id: result.meta.last_row_id }, 201);
+}
+
+// Same phone number as an existing contact → add the follow-up to that contact instead of a duplicate.
+// A new deal is opened only if the person has no open deal already.
+async function leadFromWebsiteBooking(db, booking) {
+  const lead = websiteLead(booking, indiaToday());
+  const c = lead.contact;
+  const existing = c.phone
+    ? await db.prepare('SELECT id FROM crm_contacts WHERE phone = ? ORDER BY id DESC LIMIT 1').bind(c.phone).first()
+    : null;
+  let contactId = existing?.id;
+  if (contactId) {
+    await db.prepare(
+      "UPDATE crm_contacts SET status = CASE WHEN status = 'inactive' THEN 'lead' ELSE status END, updated_at = datetime('now') WHERE id = ?",
+    ).bind(contactId).run();
+  } else {
+    const r = await db.prepare(
+      'INSERT INTO crm_contacts (name, phone, age, source, interest, status, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    ).bind(c.name, c.phone, c.age, c.source, c.interest, c.status, c.notes).run();
+    contactId = r.meta.last_row_id;
+  }
+  let deal = await db.prepare(
+    "SELECT id FROM crm_deals WHERE contact_id = ? AND stage NOT IN ('won', 'lost') ORDER BY id DESC LIMIT 1",
+  ).bind(contactId).first();
+  if (!deal) {
+    const r = await db.prepare('INSERT INTO crm_deals (contact_id, title, deal_type, stage) VALUES (?, ?, ?, ?)')
+      .bind(contactId, lead.deal.title, lead.deal.deal_type, lead.deal.stage).run();
+    deal = { id: r.meta.last_row_id };
+  }
+  await db.prepare('INSERT INTO crm_activities (contact_id, deal_id, kind, body, due_date) VALUES (?, ?, ?, ?, ?)')
+    .bind(contactId, deal.id, lead.followUp.kind, lead.followUp.body, lead.followUp.due_date).run();
+  await audit(db, null, 'crm.lead_from_website', 'crm_contact', contactId);
 }
 
 // ---------- dashboard ----------
@@ -650,6 +699,423 @@ async function saveDashboardNote({ db, user, request }) {
   return json({ ok: true });
 }
 
+// ---------- CRM: leads, deals (sales pipeline) and follow-ups ----------
+// All staff can use the CRM. Only an admin can delete a contact or a deal.
+// Website bookings arrive here on their own (see leadFromWebsiteBooking above).
+
+const CONTACT_FIELDS = ['name', 'phone', 'alt_phone', 'email', 'age', 'for_whom', 'area', 'language', 'source', 'referred_by', 'interest', 'status', 'owner_id', 'patient_id', 'notes'];
+const DEAL_FIELDS = ['title', 'deal_type', 'stage', 'value_paise', 'expected_close', 'lost_reason', 'owner_id'];
+
+// Adds next_id / next_kind / next_body / next_due: the contact's open follow-up with the earliest date.
+const NEXT_ACTION_COLS = 'n.id AS next_id, n.kind AS next_kind, n.body AS next_body, n.due_date AS next_due';
+const nextActionJoin = (contactColumn) => `LEFT JOIN crm_activities n ON n.id = (
+  SELECT a.id FROM crm_activities a
+   WHERE a.contact_id = ${contactColumn} AND a.done_at IS NULL AND a.due_date IS NOT NULL
+   ORDER BY a.due_date, a.id LIMIT 1)`;
+
+function readCrm(normalize, body) {
+  try {
+    return normalize(body);
+  } catch (err) {
+    throw new HttpError(400, err.message);
+  }
+}
+
+function positiveId(value, what) {
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) throw new HttpError(400, `Choose a ${what}.`);
+  return n;
+}
+
+// Same format as SQLite's datetime('now'), in UTC.
+function nowSql() {
+  return new Date().toISOString().slice(0, 19).replace('T', ' ');
+}
+
+function crmToday(url) {
+  const today = url.searchParams.get('today');
+  return isDate(today) ? today : indiaToday();
+}
+
+function publicDeal(row) {
+  const { value_paise: paise, ...rest } = row;
+  return { ...rest, value: (paise || 0) / 100 };
+}
+
+async function assertStaffMember(db, id) {
+  if (!id) return;
+  const row = await db.prepare('SELECT id FROM users WHERE id = ? AND active = 1').bind(id).first();
+  if (!row) throw new HttpError(400, 'Choose an active staff member.');
+}
+
+async function loadContact(db, id) {
+  const contact = await db.prepare('SELECT * FROM crm_contacts WHERE id = ?').bind(id).first();
+  if (!contact) throw new HttpError(404, 'Contact not found.');
+  return contact;
+}
+
+async function loadDeal(db, id) {
+  const deal = await db.prepare('SELECT * FROM crm_deals WHERE id = ?').bind(id).first();
+  if (!deal) throw new HttpError(404, 'Deal not found.');
+  return deal;
+}
+
+async function loadActivity(db, id) {
+  const activity = await db.prepare('SELECT * FROM crm_activities WHERE id = ?').bind(id).first();
+  if (!activity) throw new HttpError(404, 'Entry not found.');
+  return activity;
+}
+
+function touchContact(db, id) {
+  return db.prepare("UPDATE crm_contacts SET updated_at = datetime('now') WHERE id = ?").bind(id);
+}
+
+// Saves a deal and writes "New deal at …" into the contact's history. A won deal makes the contact a customer.
+async function insertDeal(db, user, contactId, deal) {
+  const now = nowSql();
+  const result = await db.prepare(
+    `INSERT INTO crm_deals (contact_id, ${DEAL_FIELDS.join(', ')}, stage_changed_at, closed_at, created_by)
+     VALUES (?, ${DEAL_FIELDS.map(() => '?').join(', ')}, ?, ?, ?)`,
+  ).bind(contactId, ...DEAL_FIELDS.map((f) => deal[f]), now, CLOSED_STAGE_IDS.includes(deal.stage) ? now : null, user.id).run();
+  const dealId = result.meta.last_row_id;
+  const statements = [
+    db.prepare("INSERT INTO crm_activities (contact_id, deal_id, kind, body, done_at, created_by) VALUES (?, ?, 'stage', ?, ?, ?)")
+      .bind(contactId, dealId, `${deal.title}: ${stageChangeNote(null, deal.stage, deal.lost_reason)}`, now, user.id),
+    touchContact(db, contactId),
+  ];
+  if (deal.stage === 'won') statements.push(db.prepare("UPDATE crm_contacts SET status = 'customer' WHERE id = ?").bind(contactId));
+  await db.batch(statements);
+  return dealId;
+}
+
+async function crmStaff({ db, user }) {
+  requireRole(user, ...ALL_STAFF);
+  const { results } = await db.prepare('SELECT id, full_name, role FROM users WHERE active = 1 ORDER BY full_name').all();
+  return json({ staff: results });
+}
+
+async function crmSummary({ db, user, url }) {
+  requireRole(user, ...ALL_STAFF);
+  const today = crmToday(url);
+  // Saved times are UTC; the clinic's month starts at midnight IST (18:30 UTC the day before).
+  const monthStart = new Date(Date.parse(`${today.slice(0, 7)}-01T00:00:00+05:30`)).toISOString().slice(0, 19).replace('T', ' ');
+  const [stages, due, leads, won, top] = await db.batch([
+    db.prepare("SELECT stage, COUNT(*) AS n, COALESCE(SUM(value_paise), 0) AS v FROM crm_deals WHERE stage NOT IN ('won', 'lost') GROUP BY stage"),
+    db.prepare(
+      `SELECT COALESCE(SUM(due_date < ?), 0) AS overdue, COALESCE(SUM(due_date = ?), 0) AS today,
+              COALESCE(SUM(due_date > ? AND due_date <= ?), 0) AS week
+         FROM crm_activities WHERE done_at IS NULL AND due_date IS NOT NULL`,
+    ).bind(today, today, today, addDays(today, 7)),
+    db.prepare('SELECT COUNT(*) AS n FROM crm_contacts WHERE created_at >= ?').bind(monthStart),
+    db.prepare("SELECT COUNT(*) AS n, COALESCE(SUM(value_paise), 0) AS v FROM crm_deals WHERE stage = 'won' AND closed_at >= ?").bind(monthStart),
+    db.prepare(
+      `SELECT a.id, a.kind, a.body, a.due_date, a.contact_id, c.name AS contact_name, c.phone AS contact_phone
+         FROM crm_activities a JOIN crm_contacts c ON c.id = a.contact_id
+        WHERE a.done_at IS NULL AND a.due_date IS NOT NULL AND a.due_date <= ?
+        ORDER BY a.due_date, a.id LIMIT 6`,
+    ).bind(today),
+  ]);
+  const counts = due.results[0] || {};
+  return json({
+    stages: Object.fromEntries(stages.results.map((r) => [r.stage, { count: r.n, value: r.v / 100 }])),
+    followUps: { overdue: counts.overdue || 0, today: counts.today || 0, week: counts.week || 0 },
+    leadsThisMonth: leads.results[0].n,
+    wonThisMonth: { count: won.results[0].n, value: won.results[0].v / 100 },
+    due: top.results,
+  });
+}
+
+async function listCrmContacts({ db, user, url }) {
+  requireRole(user, ...ALL_STAFF);
+  const where = [];
+  const args = [];
+  const status = url.searchParams.get('status');
+  if (['lead', 'customer', 'inactive'].includes(status)) { where.push('c.status = ?'); args.push(status); }
+  const source = text(url.searchParams.get('source'), 40);
+  if (source) { where.push('c.source = ?'); args.push(source); }
+  if (url.searchParams.get('mine')) { where.push('c.owner_id = ?'); args.push(user.id); }
+  if (url.searchParams.get('next') === 'none') where.push('n.id IS NULL');
+  const q = text(url.searchParams.get('q'), 60);
+  if (q) {
+    const like = `%${q}%`;
+    const digits = q.replace(/\D/g, '');
+    const byPhone = digits.length >= 3;
+    where.push(`(c.name LIKE ? OR c.area LIKE ? OR c.interest LIKE ? OR c.referred_by LIKE ?${byPhone ? ' OR c.phone LIKE ? OR c.alt_phone LIKE ?' : ''})`);
+    args.push(like, like, like, like);
+    if (byPhone) args.push(`%${digits}%`, `%${digits}%`);
+  }
+  const { results } = await db.prepare(
+    `SELECT c.*, u.full_name AS owner_name,
+            (SELECT COUNT(*) FROM crm_deals d WHERE d.contact_id = c.id AND d.stage NOT IN ('won', 'lost')) AS open_deals,
+            (SELECT COALESCE(SUM(d.value_paise), 0) FROM crm_deals d WHERE d.contact_id = c.id AND d.stage NOT IN ('won', 'lost')) AS open_value_paise,
+            (SELECT d.stage FROM crm_deals d WHERE d.contact_id = c.id ORDER BY d.stage IN ('won', 'lost'), d.updated_at DESC, d.id DESC LIMIT 1) AS stage,
+            ${NEXT_ACTION_COLS}
+       FROM crm_contacts c
+       LEFT JOIN users u ON u.id = c.owner_id
+       ${nextActionJoin('c.id')}
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY n.due_date IS NULL, n.due_date, c.updated_at DESC
+      LIMIT 500`,
+  ).bind(...args).all();
+  return json({
+    contacts: results.map(({ open_value_paise: paise, ...row }) => ({ ...row, open_value: (paise || 0) / 100 })),
+  });
+}
+
+async function createCrmContact({ db, user, request }) {
+  requireRole(user, ...ALL_STAFF);
+  const body = await readJson(request);
+  const contact = readCrm(normalizeContact, { owner_id: user.id, ...body });
+  await assertStaffMember(db, contact.owner_id);
+  const deal = body.deal ? readCrm(normalizeDeal, { owner_id: contact.owner_id, ...body.deal }) : null;
+  if (deal) await assertStaffMember(db, deal.owner_id);
+  const next = body.next && (body.next.due_date || body.next.body) ? readCrm(normalizeActivity, body.next) : null;
+  if (next && !next.due_date) throw new HttpError(400, 'Pick a date for the first follow-up.');
+  if (next) await assertStaffMember(db, next.assigned_to);
+
+  const result = await db.prepare(
+    `INSERT INTO crm_contacts (${CONTACT_FIELDS.join(', ')}, created_by) VALUES (${CONTACT_FIELDS.map(() => '?').join(', ')}, ?)`,
+  ).bind(...CONTACT_FIELDS.map((f) => contact[f]), user.id).run();
+  const id = result.meta.last_row_id;
+  const dealId = deal ? await insertDeal(db, user, id, deal) : null;
+  if (next) {
+    await db.prepare('INSERT INTO crm_activities (contact_id, deal_id, kind, body, due_date, assigned_to, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(id, dealId, next.kind, next.body, next.due_date, next.assigned_to || contact.owner_id || user.id, user.id).run();
+  }
+  await audit(db, user, 'crm.contact.create', 'crm_contact', id, contact.source);
+  return json({ id }, 201);
+}
+
+async function getCrmContact({ db, user, params }) {
+  requireRole(user, ...ALL_STAFF);
+  const contact = await db.prepare(
+    `SELECT c.*, u.full_name AS owner_name, p.reg_no AS patient_reg_no
+       FROM crm_contacts c
+       LEFT JOIN users u ON u.id = c.owner_id
+       LEFT JOIN patients p ON p.id = c.patient_id
+      WHERE c.id = ?`,
+  ).bind(params.id).first();
+  if (!contact) throw new HttpError(404, 'Contact not found.');
+  const [deals, activities] = await db.batch([
+    db.prepare(
+      `SELECT d.*, u.full_name AS owner_name FROM crm_deals d LEFT JOIN users u ON u.id = d.owner_id
+        WHERE d.contact_id = ? ORDER BY d.stage IN ('won', 'lost'), d.updated_at DESC, d.id DESC`,
+    ).bind(contact.id),
+    db.prepare(
+      `SELECT a.*, cu.full_name AS created_name, au.full_name AS assigned_name, d.title AS deal_title
+         FROM crm_activities a
+         LEFT JOIN users cu ON cu.id = a.created_by
+         LEFT JOIN users au ON au.id = a.assigned_to
+         LEFT JOIN crm_deals d ON d.id = a.deal_id
+        WHERE a.contact_id = ?
+        ORDER BY COALESCE(a.done_at, a.created_at) DESC, a.id DESC
+        LIMIT 300`,
+    ).bind(contact.id),
+  ]);
+  return json({ contact, deals: deals.results.map(publicDeal), activities: activities.results });
+}
+
+async function updateCrmContact({ db, user, request, params }) {
+  requireRole(user, ...ALL_STAFF);
+  const current = await loadContact(db, params.id);
+  const contact = readCrm(normalizeContact, { ...current, ...(await readJson(request)) });
+  if (contact.owner_id !== current.owner_id) await assertStaffMember(db, contact.owner_id);
+  if (contact.patient_id && contact.patient_id !== current.patient_id) {
+    const patient = await db.prepare('SELECT id FROM patients WHERE id = ?').bind(contact.patient_id).first();
+    if (!patient) throw new HttpError(400, 'Patient not found.');
+  }
+  await db.prepare(`UPDATE crm_contacts SET ${CONTACT_FIELDS.map((f) => `${f} = ?`).join(', ')}, updated_at = datetime('now') WHERE id = ?`)
+    .bind(...CONTACT_FIELDS.map((f) => contact[f]), current.id).run();
+  await audit(db, user, 'crm.contact.update', 'crm_contact', current.id, contact.status !== current.status ? `status=${contact.status}` : null);
+  return json({ ok: true });
+}
+
+async function deleteCrmContact({ db, user, params }) {
+  requireRole(user, 'admin');
+  const current = await loadContact(db, params.id);
+  await db.batch([
+    db.prepare('DELETE FROM crm_activities WHERE contact_id = ?').bind(current.id),
+    db.prepare('DELETE FROM crm_deals WHERE contact_id = ?').bind(current.id),
+    db.prepare('DELETE FROM crm_contacts WHERE id = ?').bind(current.id),
+  ]);
+  await audit(db, user, 'crm.contact.delete', 'crm_contact', current.id);
+  return json({ ok: true });
+}
+
+// The pipeline board: every open deal, plus deals won or lost in the last 60 days.
+async function listCrmDeals({ db, user, url }) {
+  requireRole(user, ...ALL_STAFF);
+  const since = addDays(crmToday(url), -60);
+  const { results } = await db.prepare(
+    `SELECT d.*, c.name AS contact_name, c.phone AS contact_phone, c.status AS contact_status, u.full_name AS owner_name,
+            ${NEXT_ACTION_COLS}
+       FROM crm_deals d
+       JOIN crm_contacts c ON c.id = d.contact_id
+       LEFT JOIN users u ON u.id = d.owner_id
+       ${nextActionJoin('d.contact_id')}
+      WHERE d.stage NOT IN ('won', 'lost') OR d.closed_at >= ?
+      ORDER BY n.due_date IS NULL, n.due_date, d.updated_at DESC
+      LIMIT 800`,
+  ).bind(since).all();
+  return json({ deals: results.map(publicDeal), closedSince: since });
+}
+
+async function createCrmDeal({ db, user, request }) {
+  requireRole(user, ...ALL_STAFF);
+  const body = await readJson(request);
+  const contact = await loadContact(db, positiveId(body.contact_id, 'contact'));
+  const deal = readCrm(normalizeDeal, { owner_id: contact.owner_id || user.id, ...body });
+  await assertStaffMember(db, deal.owner_id);
+  const id = await insertDeal(db, user, contact.id, deal);
+  await audit(db, user, 'crm.deal.create', 'crm_deal', id, deal.stage);
+  return json({ id }, 201);
+}
+
+// Moving a deal to another stage records it in the contact's history; "won" makes the contact a customer.
+async function updateCrmDeal({ db, user, request, params }) {
+  requireRole(user, ...ALL_STAFF);
+  const current = await loadDeal(db, params.id);
+  const deal = readCrm(normalizeDeal, { ...publicDeal(current), ...(await readJson(request)) });
+  if (deal.owner_id !== current.owner_id) await assertStaffMember(db, deal.owner_id);
+  const moved = deal.stage !== current.stage;
+  const closed = CLOSED_STAGE_IDS.includes(deal.stage);
+  const now = nowSql();
+  const statements = [
+    db.prepare(`UPDATE crm_deals SET ${DEAL_FIELDS.map((f) => `${f} = ?`).join(', ')}, stage_changed_at = ?, closed_at = ?, updated_at = ? WHERE id = ?`)
+      .bind(
+        ...DEAL_FIELDS.map((f) => deal[f]),
+        moved ? now : current.stage_changed_at,
+        closed ? (moved ? now : current.closed_at || now) : null,
+        now,
+        current.id,
+      ),
+    touchContact(db, current.contact_id),
+  ];
+  if (moved) {
+    statements.push(
+      db.prepare("INSERT INTO crm_activities (contact_id, deal_id, kind, body, done_at, created_by) VALUES (?, ?, 'stage', ?, ?, ?)")
+        .bind(current.contact_id, current.id, `${deal.title}: ${stageChangeNote(current.stage, deal.stage, deal.lost_reason)}`, now, user.id),
+    );
+    if (deal.stage === 'won') statements.push(db.prepare("UPDATE crm_contacts SET status = 'customer' WHERE id = ?").bind(current.contact_id));
+  }
+  await db.batch(statements);
+  await audit(db, user, 'crm.deal.update', 'crm_deal', current.id, moved ? `${current.stage}->${deal.stage}` : null);
+  return json({ ok: true });
+}
+
+async function deleteCrmDeal({ db, user, params }) {
+  requireRole(user, 'admin');
+  const current = await loadDeal(db, params.id);
+  await db.batch([
+    db.prepare('UPDATE crm_activities SET deal_id = NULL WHERE deal_id = ?').bind(current.id),
+    db.prepare('DELETE FROM crm_deals WHERE id = ?').bind(current.id),
+    touchContact(db, current.contact_id),
+  ]);
+  await audit(db, user, 'crm.deal.delete', 'crm_deal', current.id);
+  return json({ ok: true });
+}
+
+// Open follow-ups (next actions), soonest first. ?mine=1 → only those assigned to me.
+async function listCrmFollowUps({ db, user, url }) {
+  requireRole(user, ...ALL_STAFF);
+  const where = ['a.done_at IS NULL', 'a.due_date IS NOT NULL'];
+  const args = [];
+  if (url.searchParams.get('mine')) { where.push('a.assigned_to = ?'); args.push(user.id); }
+  const { results } = await db.prepare(
+    `SELECT a.*, c.name AS contact_name, c.phone AS contact_phone, c.status AS contact_status,
+            d.title AS deal_title, d.stage AS deal_stage, au.full_name AS assigned_name
+       FROM crm_activities a
+       JOIN crm_contacts c ON c.id = a.contact_id
+       LEFT JOIN crm_deals d ON d.id = a.deal_id
+       LEFT JOIN users au ON au.id = a.assigned_to
+      WHERE ${where.join(' AND ')}
+      ORDER BY a.due_date, a.id
+      LIMIT 500`,
+  ).bind(...args).all();
+  return json({ followUps: results });
+}
+
+// With a due_date it is a follow-up (open until marked done); without, it is a logged call / visit / note.
+async function createCrmActivity({ db, user, request }) {
+  requireRole(user, ...ALL_STAFF);
+  const body = await readJson(request);
+  const contact = await loadContact(db, positiveId(body.contact_id, 'contact'));
+  const activity = readCrm(normalizeActivity, body);
+  if (activity.deal_id) {
+    const deal = await db.prepare('SELECT id FROM crm_deals WHERE id = ? AND contact_id = ?').bind(activity.deal_id, contact.id).first();
+    if (!deal) throw new HttpError(400, 'That deal belongs to another contact.');
+  }
+  await assertStaffMember(db, activity.assigned_to);
+  const followUp = Boolean(activity.due_date);
+  const result = await db.prepare(
+    'INSERT INTO crm_activities (contact_id, deal_id, kind, body, due_date, done_at, outcome, assigned_to, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+  ).bind(
+    contact.id,
+    activity.deal_id,
+    activity.kind,
+    activity.body,
+    activity.due_date,
+    followUp ? null : nowSql(),
+    activity.outcome,
+    followUp ? activity.assigned_to || contact.owner_id || user.id : user.id,
+    user.id,
+  ).run();
+  await touchContact(db, contact.id).run();
+  await audit(db, user, followUp ? 'crm.followup.create' : 'crm.activity.log', 'crm_activity', result.meta.last_row_id);
+  return json({ id: result.meta.last_row_id }, 201);
+}
+
+// Mark done ({done: true, outcome}), reopen ({done: false}), reschedule ({due_date}) or edit.
+// {next: {kind, body, due_date}} adds the following follow-up in the same step.
+async function updateCrmActivity({ db, user, request, params }) {
+  requireRole(user, ...ALL_STAFF);
+  const current = await loadActivity(db, params.id);
+  if (current.kind === 'stage') throw new HttpError(400, 'Pipeline history cannot be edited.');
+  const body = await readJson(request);
+  const activity = readCrm(normalizeActivity, {
+    kind: body.kind ?? current.kind,
+    body: body.body ?? current.body,
+    due_date: body.due_date !== undefined ? body.due_date : current.due_date,
+    outcome: body.outcome !== undefined ? body.outcome : current.outcome,
+    assigned_to: body.assigned_to !== undefined ? body.assigned_to : current.assigned_to,
+    deal_id: current.deal_id,
+  });
+  if (activity.assigned_to !== current.assigned_to) await assertStaffMember(db, activity.assigned_to);
+  const now = nowSql();
+  const doneAt = body.done === true ? current.done_at || now : body.done === false ? null : current.done_at;
+  if (!doneAt && !activity.due_date) throw new HttpError(400, 'An open follow-up needs a date.');
+  const statements = [
+    db.prepare('UPDATE crm_activities SET kind = ?, body = ?, due_date = ?, outcome = ?, assigned_to = ?, done_at = ? WHERE id = ?')
+      .bind(activity.kind, activity.body, activity.due_date, activity.outcome, activity.assigned_to, doneAt, current.id),
+    touchContact(db, current.contact_id),
+  ];
+  let next = null;
+  if (body.next) {
+    next = readCrm(normalizeActivity, body.next);
+    if (!next.due_date) throw new HttpError(400, 'Pick a date for the next follow-up.');
+    await assertStaffMember(db, next.assigned_to);
+    statements.push(
+      db.prepare('INSERT INTO crm_activities (contact_id, deal_id, kind, body, due_date, assigned_to, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(current.contact_id, current.deal_id, next.kind, next.body, next.due_date, next.assigned_to || current.assigned_to || user.id, user.id),
+    );
+  }
+  await db.batch(statements);
+  const action = body.done === true && !current.done_at ? 'crm.followup.done' : 'crm.followup.update';
+  await audit(db, user, action, 'crm_activity', current.id, next ? `next ${next.due_date}` : null);
+  return json({ ok: true });
+}
+
+async function deleteCrmActivity({ db, user, params }) {
+  requireRole(user, ...ALL_STAFF);
+  const current = await loadActivity(db, params.id);
+  if (user.role !== 'admin' && (current.kind === 'stage' || current.created_by !== user.id)) {
+    throw new HttpError(403, 'Only the person who added this entry, or an admin, can delete it.');
+  }
+  await db.batch([db.prepare('DELETE FROM crm_activities WHERE id = ?').bind(current.id), touchContact(db, current.contact_id)]);
+  await audit(db, user, 'crm.activity.delete', 'crm_activity', current.id);
+  return json({ ok: true });
+}
+
 // ---------- routing ----------
 
 const routes = [
@@ -688,6 +1154,21 @@ const routes = [
   ['POST', '/api/users', createUser],
   ['PATCH', '/api/users/:id', updateUser],
   ['GET', '/api/audit', listAudit],
+  ['GET', '/api/crm/summary', crmSummary],
+  ['GET', '/api/crm/staff', crmStaff],
+  ['GET', '/api/crm/contacts', listCrmContacts],
+  ['POST', '/api/crm/contacts', createCrmContact],
+  ['GET', '/api/crm/contacts/:id', getCrmContact],
+  ['PATCH', '/api/crm/contacts/:id', updateCrmContact],
+  ['DELETE', '/api/crm/contacts/:id', deleteCrmContact],
+  ['GET', '/api/crm/deals', listCrmDeals],
+  ['POST', '/api/crm/deals', createCrmDeal],
+  ['PATCH', '/api/crm/deals/:id', updateCrmDeal],
+  ['DELETE', '/api/crm/deals/:id', deleteCrmDeal],
+  ['GET', '/api/crm/followups', listCrmFollowUps],
+  ['POST', '/api/crm/activities', createCrmActivity],
+  ['PATCH', '/api/crm/activities/:id', updateCrmActivity],
+  ['DELETE', '/api/crm/activities/:id', deleteCrmActivity],
 ].map(([method, pattern, handler]) => {
   const keys = [];
   const regex = new RegExp(`^${pattern.replace(/:(\w+)/g, (_, k) => { keys.push(k); return '(\\d+|[a-z_]+)'; })}$`);
@@ -714,6 +1195,11 @@ export async function handleApi(request, env) {
     throw new HttpError(404, 'Not found.');
   } catch (err) {
     if (err instanceof HttpError) return json({ error: err.message }, err.status);
+    // New code reached Cloudflare before its database migration was applied.
+    if (/no such table/i.test(String(err?.message))) {
+      console.error(err);
+      return json({ error: 'This part of the portal needs a database update. Apply the latest migration (docs/ADMIN_SETUP.md → “Updating the database”).' }, 503);
+    }
     console.error(err);
     return json({ error: 'Server error. Please try again.' }, 500);
   }

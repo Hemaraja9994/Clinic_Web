@@ -11,7 +11,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply sri-rudra-clinic-web-db --remote",
     "pages:dev": "npm run build && wrangler pages dev dist",
     "pack:desk": "vite build --config vite.desk.config.js && node scripts/pack-desk.mjs",
-    "test": "node --test src/shared/collectionCatalog.test.js"
+    "test": "node --test src/shared/collectionCatalog.test.js src/shared/crm.test.js"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.2.9",
