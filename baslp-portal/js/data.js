@@ -5268,7 +5268,7 @@ const DOCS = [
   {
     "title": "Self-study plan, December 2026 theory exams",
     "issuer": "Class Coordinator, Department of Audiology & SLP",
-    "note": "Semester I theory, B1.1 to B1.4 | clocked self-study around college | 12 November to 10 December 2026",
+    "note": "Semester I theory, B1.1 to B1.4 | print booklet, 12 point, one day a page | 12 November to 10 December 2026",
     "file": "BASLP_Self_Study_Plan_December_2026.pdf"
   },
   {
