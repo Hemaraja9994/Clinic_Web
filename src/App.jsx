@@ -1706,13 +1706,11 @@ function Footer() {
               <ChevronRight className="h-4 w-4 text-clinic-saffron" />
               Privacy Policy
             </a>
-            <a href="/admin/" rel="nofollow" className="inline-flex items-center gap-2 text-sm text-clinic-ivory/70 hover:text-clinic-ivory">
+            {/* The only staff entry on the public site: the daily admin portal. The website's own staff
+                area (/admin/: website text, CRM) and the offline desk (/desk.html) still work by address. */}
+            <a href="https://admin.srirudraspeechandhearing.com/" rel="nofollow" className="inline-flex items-center gap-2 text-sm text-clinic-ivory/70 hover:text-clinic-ivory">
               <ChevronRight className="h-4 w-4 text-clinic-saffron" />
               Staff login
-            </a>
-            <a href="/desk.html" className="inline-flex items-center gap-2 text-sm text-clinic-ivory/70 hover:text-clinic-ivory">
-              <ChevronRight className="h-4 w-4 text-clinic-saffron" />
-              Offline clinic desk
             </a>
           </div>
         </div>
