@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MotionConfig, motion } from 'motion/react';
-import { Banknote, CalendarCheck, ClipboardList, Globe, Handshake, LayoutDashboard, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react';
+import { Banknote, CalendarCheck, ClipboardList, Globe, Handshake, LayoutDashboard, LogOut, Menu, MonitorDown, ShieldCheck, UsersRound, X } from 'lucide-react';
 
 import { api } from './api.js';
 import { Alert, Field, Input } from './components/ui.jsx';
@@ -45,6 +45,9 @@ const NAV = [
 ];
 
 const ROLE_LABEL = { admin: 'Admin', therapist: 'Audiologist / SLP', reception: 'Reception' };
+
+// Install page of the daily admin portal (portal-plus Worker on admin.srirudraspeechandhearing.com).
+const ADMIN_APP_INSTALL_URL = 'https://admin.srirudraspeechandhearing.com/install';
 
 function matchPage(route, user) {
   let m;
@@ -137,6 +140,17 @@ function Shell({ user, route, onLogout, children }) {
           {label}
         </a>
       ))}
+      {/* The daily admin portal can be installed as an app; its install page explains each device. */}
+      <a
+        href={ADMIN_APP_INSTALL_URL}
+        target="_blank"
+        rel="noopener"
+        onClick={() => setOpen(false)}
+        className="mt-4 flex items-center gap-3 rounded-xl border border-white/20 px-3.5 py-3 text-base font-semibold text-[#fff6ee] transition hover:bg-white/10"
+      >
+        <MonitorDown className="h-5 w-5 text-clinic-saffronSoft" />
+        Install admin portal app
+      </a>
     </nav>
   );
 
