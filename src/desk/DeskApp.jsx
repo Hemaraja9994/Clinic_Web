@@ -9,13 +9,16 @@ import {
   SRI_RUDRA_CLINIC,
   categoryLabel,
   collectionsToCsv,
+  filterByPurpose,
   filterCollections,
   formatRupees,
+  includedIds,
   localDateISO,
   methodLabel,
   monthStartISO,
   slugClinicId,
 } from '../shared/collectionCatalog.js';
+import { IncludedTestNames, TestInclusionPicker, useTestInclusion } from '../shared/TestInclusion.jsx';
 import { Field, Input, TextArea } from '../admin/components/ui.jsx';
 import {
   checkDeskPassword,
@@ -239,8 +242,17 @@ function CollectionsPage({ state, update }) {
   const [draftQ, setDraftQ] = useState('');
   const [editor, setEditor] = useState(null);
   const [message, setMessage] = useState('');
+  const { inclusion, toggle, setPurpose } = useTestInclusion();
+  const billingIds = includedIds(inclusion, 'billing');
 
-  const rows = useMemo(() => {
+  useEffect(() => {
+    setFilters((current) => {
+      if (!current.category || current.category === 'all' || billingIds.includes(current.category)) return current;
+      return { ...current, category: 'all' };
+    });
+  }, [inclusion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const matched = useMemo(() => {
     const named = state.collections.map((row) => ({
       ...row,
       clinic_name: state.clinics.find((clinic) => clinic.id === row.clinic_id)?.name || row.clinic_id,
@@ -249,6 +261,8 @@ function CollectionsPage({ state, update }) {
       .slice()
       .sort((a, b) => (a.collection_date < b.collection_date ? 1 : a.collection_date > b.collection_date ? -1 : String(b.id).localeCompare(String(a.id))));
   }, [state, filters]);
+  const rows = useMemo(() => filterByPurpose(matched, inclusion, 'billing'), [matched, inclusion]);
+  const hidden = matched.length - rows.length;
 
   const total = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const setFilter = (key) => (event) => setFilters((current) => ({ ...current, [key]: event.target.value }));
@@ -318,6 +332,24 @@ function CollectionsPage({ state, update }) {
         </div>
       </div>
 
+      <section className="a-card mb-4">
+        <h2 className="font-heading text-lg font-semibold text-clinic-maroon">Tests to include</h2>
+        <p className="mt-1 text-sm text-clinic-clay">Tick Billing to show a test on the bill. Tick Report to show it on the report. A test with no tick stays off that view.</p>
+        <div className="mt-4">
+          <TestInclusionPicker inclusion={inclusion} onToggle={toggle} onSetPurpose={setPurpose} />
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div data-testid="billing-view">
+            <p className="text-xs font-semibold uppercase tracking-wider text-clinic-umber">On the bill</p>
+            <IncludedTestNames inclusion={inclusion} purpose="billing" testId="billing-tests" empty="No tests selected for billing." />
+          </div>
+          <div data-testid="report-view">
+            <p className="text-xs font-semibold uppercase tracking-wider text-clinic-umber">On the report</p>
+            <IncludedTestNames inclusion={inclusion} purpose="report" testId="report-tests" empty="No tests selected for the report." />
+          </div>
+        </div>
+      </section>
+
       <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <Filter label="From"><input className="a-input" type="date" value={filters.from} onChange={setFilter('from')} /></Filter>
         <Filter label="To"><input className="a-input" type="date" value={filters.to} onChange={setFilter('to')} /></Filter>
@@ -330,7 +362,7 @@ function CollectionsPage({ state, update }) {
         <Filter label="Category">
           <select className="a-input" data-testid="filter-category" value={filters.category} onChange={setFilter('category')}>
             <option value="all">All</option>
-            {CATEGORIES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            {CATEGORIES.filter(([id]) => billingIds.includes(id)).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
         </Filter>
         <Filter label="Method">
@@ -356,7 +388,7 @@ function CollectionsPage({ state, update }) {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={9} className="py-8 text-center text-clinic-clay">No collections in this range.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={9} className="py-8 text-center text-clinic-clay">{billingIds.length === 0 ? 'No tests selected for billing.' : 'No collections in this range.'}</td></tr>}
             {rows.map((row) => (
               <tr key={row.id} data-testid="collection-row">
                 <td className="whitespace-nowrap">{row.collection_date.split('-').reverse().join('-')}</td>
@@ -377,9 +409,14 @@ function CollectionsPage({ state, update }) {
         </table>
       </div>
       <p className="mt-3 text-sm text-clinic-clay">{rows.length} record{rows.length === 1 ? '' : 's'} · {formatRupees(total)}</p>
+      {hidden > 0 && (
+        <p className="mt-1 text-sm text-clinic-clay" data-testid="billing-hidden">
+          {hidden} collection{hidden === 1 ? '' : 's'} hidden because {hidden === 1 ? 'that test is' : 'those tests are'} not ticked for billing.
+        </p>
+      )}
 
       {editor && (
-        <CollectionEditor clinics={state.clinics} initial={editor.id ? editor : null} onSubmit={saveRows} onClose={() => setEditor(null)} />
+        <CollectionEditor clinics={state.clinics} billingIds={billingIds} initial={editor.id ? editor : null} onSubmit={saveRows} onClose={() => setEditor(null)} />
       )}
     </>
   );

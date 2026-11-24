@@ -5,6 +5,7 @@ import { api, formatDate } from '../api.js';
 import { EARS, REFLEX_FREQS, TYMP_MEANING, earSummary } from '../clinical.js';
 import { Audiogram, AudiogramKey, Tympanogram } from '../components/Charts.jsx';
 import { Alert } from '../components/ui.jsx';
+import { categoryLabel, includedIds, normalizeTestInclusion, reportNeedsNotes, sectionOnReport } from '../../shared/collectionCatalog.js';
 import { SLP_SECTIONS } from './ReportEditor.jsx';
 
 const CLINIC = {
@@ -78,6 +79,13 @@ export default function ReportPrint({ id }) {
           </tbody>
         </table>
 
+        {data.included && (
+          <p className="mt-3 text-[12px]" data-testid="report-tests">
+            <span className="font-semibold">Tests: </span>
+            {includedIds(normalizeTestInclusion(data.included), 'report').map((id) => categoryLabel(id)).join(', ') || 'None'}
+          </p>
+        )}
+
         {report.type === 'audiology' ? <AudiologyBody data={data} patient={patient} /> : <SpeechLanguageBody data={data} />}
 
         <footer className="avoid-break mt-10 flex items-end justify-between">
@@ -122,6 +130,9 @@ function Para({ label, children }) {
 const has = (obj) => obj && Object.values(obj).some((v) => (typeof v === 'object' ? has(v) : v !== '' && v !== undefined && v !== null && v !== false));
 
 function AudiologyBody({ data, patient }) {
+  const inclusion = data.included ? normalizeTestInclusion(data.included) : null;
+  const show = (section) => sectionOnReport(inclusion, section);
+  const notes = reportNeedsNotes(inclusion);
   return (
     <>
       {(data.history || patient.chief_complaint) && (
@@ -138,8 +149,8 @@ function AudiologyBody({ data, patient }) {
         </>
       )}
 
-      {(has(data.right) || has(data.left)) && (
-        <section className="avoid-break">
+      {show('pta') && (has(data.right) || has(data.left)) && (
+        <section className="avoid-break" data-testid="section-pta">
           <H2>Pure tone audiometry</H2>
           <div className="grid grid-cols-2 gap-4">
             {EARS.map((ear) => {
@@ -156,8 +167,8 @@ function AudiologyBody({ data, patient }) {
         </section>
       )}
 
-      {has(data.speech) && (
-        <section className="avoid-break">
+      {show('speech') && has(data.speech) && (
+        <section className="avoid-break" data-testid="section-speech">
           <H2>Speech audiometry</H2>
           <table className="w-full text-center text-[11.5px]">
             <thead><tr className="text-clinic-clay"><th className="text-left">Ear</th><th>SRT (dB HL)</th><th>SIS / SDS (%)</th><th>UCL (dB HL)</th></tr></thead>
@@ -176,8 +187,8 @@ function AudiologyBody({ data, patient }) {
         </section>
       )}
 
-      {(has(data.tymp) || has(data.reflexes)) && (
-        <section className="avoid-break">
+      {show('impedance') && (has(data.tymp) || has(data.reflexes)) && (
+        <section className="avoid-break" data-testid="section-impedance">
           <H2>Immittance audiometry (226 Hz)</H2>
           <div className="grid grid-cols-2 gap-4">
             {EARS.map((ear) => {
@@ -209,11 +220,11 @@ function AudiologyBody({ data, patient }) {
         </section>
       )}
 
-      {(has(data.oae) || data.other_tests) && (
+      {((show('oae') && has(data.oae)) || (notes && data.other_tests)) && (
         <>
           <H2>Other tests</H2>
-          {has(data.oae) && <Para label="OAE">Right: {data.oae?.right || 'Not done'} · Left: {data.oae?.left || 'Not done'}</Para>}
-          <Para>{data.other_tests}</Para>
+          {show('oae') && has(data.oae) && <Para label="OAE">Right: {data.oae?.right || 'Not done'} · Left: {data.oae?.left || 'Not done'}</Para>}
+          {notes && <Para>{data.other_tests}</Para>}
         </>
       )}
 
@@ -233,6 +244,8 @@ function AudiologyBody({ data, patient }) {
 }
 
 function SpeechLanguageBody({ data }) {
+  const inclusion = data.included ? normalizeTestInclusion(data.included) : null;
+  if (inclusion && !sectionOnReport(inclusion, 'speech_language')) return null;
   return SLP_SECTIONS.filter(([key]) => data[key]).map(([key, label]) => (
     <section key={key} className="avoid-break">
       <H2>{label}</H2>

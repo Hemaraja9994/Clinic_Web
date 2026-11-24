@@ -7,11 +7,14 @@ import {
   PAYMENT_METHODS,
   categoryLabel,
   collectionsToCsv,
+  filterByPurpose,
   formatRupees,
+  includedIds,
   methodLabel,
   monthStartISO,
   slugClinicId,
 } from '../../shared/collectionCatalog.js';
+import { IncludedTestNames, TestInclusionPicker, useTestInclusion } from '../../shared/TestInclusion.jsx';
 import { Alert, Field, Input, PageHeader, TextArea } from '../components/ui.jsx';
 import { useUser } from '../session.js';
 
@@ -32,6 +35,8 @@ export default function Collections() {
   const [error, setError] = useState('');
   const [editor, setEditor] = useState(null);
   const [addingClinic, setAddingClinic] = useState(false);
+  const { inclusion, toggle, setPurpose } = useTestInclusion();
+  const billingIds = includedIds(inclusion, 'billing');
 
   const load = async (next = filters) => {
     const params = new URLSearchParams();
@@ -52,6 +57,14 @@ export default function Collections() {
   useEffect(() => {
     load();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (filters.category && !billingIds.includes(filters.category)) {
+      const next = { ...filters, category: '' };
+      setFilters(next);
+      load(next);
+    }
+  }, [inclusion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const apply = (event) => {
     event?.preventDefault();
@@ -90,7 +103,9 @@ export default function Collections() {
     }
   };
 
-  const total = rows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const visibleRows = filterByPurpose(rows, inclusion, 'billing');
+  const hidden = rows.length - visibleRows.length;
+  const total = visibleRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
   return (
     <>
@@ -99,12 +114,29 @@ export default function Collections() {
         subtitle="Money taken in each day, split by what it was for. Record one category, or several services from the same visit."
         actions={(
           <>
-            <button type="button" className="a-btn-secondary" onClick={() => downloadCsv(rows)}>Export CSV</button>
+            <button type="button" className="a-btn-secondary" onClick={() => downloadCsv(visibleRows)}>Export CSV</button>
             <button type="button" className="a-btn-secondary" onClick={() => setAddingClinic(true)}>Add clinic</button>
             <button type="button" className="a-btn-primary" onClick={() => setEditor({})}>Record collection</button>
           </>
         )}
       />
+      <section className="a-card mb-4">
+        <h2 className="font-heading text-lg font-semibold text-clinic-maroon">Tests to include</h2>
+        <p className="mt-1 text-sm text-clinic-clay">Tick Billing to show a test on the bill. Tick Report to show it on the report. A test with no tick stays off that view.</p>
+        <div className="mt-4">
+          <TestInclusionPicker inclusion={inclusion} onToggle={toggle} onSetPurpose={setPurpose} />
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div data-testid="billing-view">
+            <p className="text-xs font-semibold uppercase tracking-wider text-clinic-umber">On the bill</p>
+            <IncludedTestNames inclusion={inclusion} purpose="billing" testId="billing-tests" empty="No tests selected for billing." />
+          </div>
+          <div data-testid="report-view">
+            <p className="text-xs font-semibold uppercase tracking-wider text-clinic-umber">On the report</p>
+            <IncludedTestNames inclusion={inclusion} purpose="report" testId="report-tests" empty="No tests selected for the report." />
+          </div>
+        </div>
+      </section>
       <form onSubmit={apply} className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <Filter label="From"><input className="a-input" type="date" value={filters.from} onChange={setFilter('from')} /></Filter>
         <Filter label="To"><input className="a-input" type="date" value={filters.to} onChange={setFilter('to')} /></Filter>
@@ -117,7 +149,7 @@ export default function Collections() {
         <Filter label="Category">
           <select className="a-input" value={filters.category} onChange={setFilter('category')}>
             <option value="">All</option>
-            {CATEGORIES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+            {CATEGORIES.filter(([id]) => billingIds.includes(id)).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
         </Filter>
         <Filter label="Method">
@@ -142,8 +174,8 @@ export default function Collections() {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={9} className="py-8 text-center text-clinic-clay">No collections in this range.</td></tr>}
-            {rows.map((row) => (
+            {visibleRows.length === 0 && <tr><td colSpan={9} className="py-8 text-center text-clinic-clay">{billingIds.length === 0 ? 'No tests selected for billing.' : 'No collections in this range.'}</td></tr>}
+            {visibleRows.map((row) => (
               <tr key={row.id}>
                 <td className="whitespace-nowrap">{formatDate(row.collection_date)}</td>
                 <td>{row.clinic_name}</td>
@@ -162,8 +194,13 @@ export default function Collections() {
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-sm text-clinic-clay">{rows.length} record{rows.length === 1 ? '' : 's'} · {formatRupees(total)}</p>
-      {editor && <CollectionEditor clinics={clinics} initial={editor.id ? editor : null} onSubmit={save} onClose={() => setEditor(null)} />}
+      <p className="mt-3 text-sm text-clinic-clay">{visibleRows.length} record{visibleRows.length === 1 ? '' : 's'} · {formatRupees(total)}</p>
+      {hidden > 0 && (
+        <p className="mt-1 text-sm text-clinic-clay" data-testid="billing-hidden">
+          {hidden} collection{hidden === 1 ? '' : 's'} hidden because {hidden === 1 ? 'that test is' : 'those tests are'} not ticked for billing.
+        </p>
+      )}
+      {editor && <CollectionEditor clinics={clinics} billingIds={billingIds} initial={editor.id ? editor : null} onSubmit={save} onClose={() => setEditor(null)} />}
       {addingClinic && <ClinicForm onClose={() => setAddingClinic(false)} onSaved={() => { setAddingClinic(false); load(); }} />}
     </>
   );
