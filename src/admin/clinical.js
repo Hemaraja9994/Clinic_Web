@@ -55,6 +55,23 @@ export function earSummary(ear) {
   return { ac, bc, gap: ac !== null && bc !== null ? ac - bc : null, impression: lossType(ac, bc) };
 }
 
+// Clinical tympanogram scale (226 Hz). Pressure is +200 daPa on the left and −400 daPa
+// on the right, the same direction a tympanometer prints. Compliance in ml rises upward.
+export const TYMP_P_LEFT = 200;
+export const TYMP_P_RIGHT = -400;
+export const TYMP_C_MAX = 2;
+
+export function tympX(pressure, plot) {
+  const span = TYMP_P_LEFT - TYMP_P_RIGHT;
+  return plot.left + ((TYMP_P_LEFT - pressure) / span) * plot.width;
+}
+
+export function tympY(compliance, plot) {
+  const max = plot.max ?? TYMP_C_MAX;
+  const c = Math.min(Math.max(Number(compliance) || 0, 0), max);
+  return plot.top + (1 - c / max) * plot.height;
+}
+
 // Jerger (1970) tympanogram type from peak pressure (daPa) and peak compliance (ml).
 // Adult norms: pressure −100 to +50 daPa, compliance 0.3–1.6 ml.
 export function tympType(tymp) {

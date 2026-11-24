@@ -15,31 +15,46 @@ import { Field, Input, Select, TextArea } from '../admin/components/ui.jsx';
 
 const emptyLine = (category) => ({ category, amount: '' });
 
-export function CollectionEditor({ clinics, initial, onSubmit, onClose }) {
+export function CollectionEditor({ clinics, initial, onSubmit, onClose, billingIds }) {
   const editing = Boolean(initial?.id);
-  const [form, setForm] = useState(() => ({
-    collection_date: initial?.collection_date || localDateISO(),
-    clinic_id: initial?.clinic_id || clinics[0]?.id || '',
-    category: initial?.category || 'pta',
-    amount: initial?.amount ?? '',
-    method: initial?.method || 'cash',
-    phone: initial?.phone || '',
-    reference: initial?.reference || '',
-    notes: initial?.notes || '',
-    mode: 'single',
-  }));
+  const [form, setForm] = useState(() => {
+    const allowed = Array.isArray(billingIds) ? billingIds : null;
+    const preferred = initial?.category || 'pta';
+    const category = !initial?.id && allowed && !allowed.includes(preferred) ? (allowed[0] || preferred) : preferred;
+    return {
+      collection_date: initial?.collection_date || localDateISO(),
+      clinic_id: initial?.clinic_id || clinics[0]?.id || '',
+      category,
+      amount: initial?.amount ?? '',
+      method: initial?.method || 'cash',
+      phone: initial?.phone || '',
+      reference: initial?.reference || '',
+      notes: initial?.notes || '',
+      mode: 'single',
+    };
+  });
   const [lines, setLines] = useState([]);
   const [error, setError] = useState('');
+  const allowedIds = Array.isArray(billingIds) ? new Set(billingIds) : null;
   const set = (key) => (value) => setForm((current) => ({ ...current, [key]: value }));
+  const categoryOptions = (() => {
+    const base = allowedIds ? CATEGORIES.filter(([id]) => allowedIds.has(id)) : CATEGORIES;
+    if (editing && form.category && !base.some(([id]) => id === form.category)) {
+      return [[form.category, categoryLabel(form.category)], ...base];
+    }
+    return base;
+  })();
 
   const save = (event) => {
     event.preventDefault();
     setError('');
     try {
-      const ticked = lines.filter((line) => line.category);
+      const ticked = lines.filter((line) => line.category && (!allowedIds || allowedIds.has(line.category)));
       let rows;
       if (!editing && ticked.length) {
         rows = buildCollectionRows({ ...form, mode: 'multi', lines: ticked });
+      } else if (!editing && allowedIds && !allowedIds.has(form.category)) {
+        throw new Error('Tick a test under Billing before saving it on the bill.');
       } else if (!editing && String(form.amount).trim() === '') {
         throw new Error('Click a test and enter its amount, or choose one category and an amount.');
       } else {
@@ -74,15 +89,17 @@ export function CollectionEditor({ clinics, initial, onSubmit, onClose }) {
         </div>
 
         {editing ? (
-          <SingleCategory form={form} set={set} />
+          <SingleCategory form={form} set={set} options={categoryOptions} />
+        ) : categoryOptions.length === 0 ? (
+          <p className="text-sm text-clinic-clay">Tick at least one test under Billing. Only those tests can be added to the bill.</p>
         ) : (
           <>
-            <TestChecklist lines={lines} onChange={setLines} />
+            <TestChecklist lines={lines} onChange={setLines} allowedIds={allowedIds} />
             {summary && <p className="text-sm text-clinic-ink">{summary}</p>}
             <details className="rounded-xl border border-clinic-sand bg-clinic-parchment/50 px-3 py-2">
               <summary className="cursor-pointer text-sm font-semibold text-clinic-maroon">Or save as one category</summary>
               <div className="mt-3">
-                <SingleCategory form={form} set={set} />
+                <SingleCategory form={form} set={set} options={categoryOptions} />
               </div>
             </details>
           </>
@@ -115,8 +132,12 @@ export function CollectionEditor({ clinics, initial, onSubmit, onClose }) {
   );
 }
 
-function TestChecklist({ lines, onChange }) {
+function TestChecklist({ lines, onChange, allowedIds }) {
   const selected = new Set(lines.map((line) => line.category));
+  const groups = SERVICE_GROUPS
+    .map((group) => ({ ...group, ids: group.ids.filter((id) => !allowedIds || allowedIds.has(id)) }))
+    .filter((group) => group.ids.length);
+  const presets = SERVICE_PRESETS.filter((preset) => preset.services.some((id) => !allowedIds || allowedIds.has(id)));
   const toggle = (id) => {
     onChange(selected.has(id) ? lines.filter((line) => line.category !== id) : [...lines, emptyLine(id)]);
   };
@@ -129,20 +150,20 @@ function TestChecklist({ lines, onChange }) {
       <p className="text-sm font-semibold text-clinic-ink">Click a test to add it</p>
       <p className="mt-1 text-sm text-clinic-clay">Tick every test that was paid for. Each one gets its own amount. Phone, reference, and note are copied onto each row.</p>
       <div className="mt-3 flex flex-wrap gap-2">
-        {SERVICE_PRESETS.map((preset) => (
+        {presets.map((preset) => (
           <button
             key={preset.id}
             type="button"
             data-testid={`preset-${preset.id}`}
             className="a-btn-secondary"
-            onClick={() => onChange(applyPreset(lines, preset))}
+            onClick={() => onChange(applyPreset(lines, preset).filter((line) => !allowedIds || allowedIds.has(line.category)))}
           >
             {preset.label}
           </button>
         ))}
       </div>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        {SERVICE_GROUPS.map((group) => (
+        {groups.map((group) => (
           <fieldset key={group.title} className="min-w-0">
             <legend className="text-xs font-semibold uppercase tracking-wider text-clinic-umber">{group.title}</legend>
             <div className="mt-2 grid gap-1.5">
@@ -182,11 +203,11 @@ function TestChecklist({ lines, onChange }) {
   );
 }
 
-function SingleCategory({ form, set }) {
+function SingleCategory({ form, set, options }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <Field label="Category *">
-        <Select data-testid="category" value={form.category} onChange={set('category')} options={CATEGORIES} />
+        <Select data-testid="category" value={form.category} onChange={set('category')} options={options} />
       </Field>
       <Field label="Amount (₹) *">
         <Input data-testid="amount" value={form.amount} onChange={set('amount')} inputMode="decimal" placeholder="0.00" />

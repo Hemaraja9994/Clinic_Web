@@ -6,6 +6,15 @@ import { AC_FREQS, BC_FREQS, EARS, REFLEX_FREQS, TYMP_MEANING, earSummary, tympT
 import { Audiogram, AudiogramKey, Tympanogram } from '../components/Charts.jsx';
 import { Alert, Field, Input, PageHeader, Select, StatusBadge, TextArea } from '../components/ui.jsx';
 import { navigate, useUser } from '../session.js';
+import {
+  defaultTestInclusion,
+  normalizeTestInclusion,
+  reportNeedsNotes,
+  sectionOnReport,
+  setTestPurpose,
+  toggleTestInclusion,
+} from '../../shared/collectionCatalog.js';
+import { IncludedTestNames, TestInclusionPicker, loadTestInclusion, useTestInclusion } from '../../shared/TestInclusion.jsx';
 
 const TITLES = { audiology: 'Audiological evaluation', speech_language: 'Speech-language evaluation' };
 
@@ -24,7 +33,8 @@ export default function ReportEditor({ id, patientId, type: newType }) {
   const user = useUser();
   const [report, setReport] = useState(null);
   const [patient, setPatient] = useState(null);
-  const [data, setData] = useState({});
+  const [data, setData] = useState(() => (id ? {} : { included: loadTestInclusion() }));
+  const sharedInclusion = useTestInclusion();
   const [date, setDate] = useState(todayISO());
   const [msg, setMsg] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -42,6 +52,17 @@ export default function ReportEditor({ id, patientId, type: newType }) {
   const type = report?.type || newType;
   const locked = report?.status === 'final' && user.role !== 'admin';
   const bind = (...path) => ({ value: getIn(data, path) ?? '', onChange: (v) => setData((d) => setIn(d, path, v)) });
+  const selectionActive = Boolean(data.included);
+  const reportInclusion = selectionActive ? normalizeTestInclusion(data.included) : null;
+  const pickerInclusion = selectionActive
+    ? reportInclusion
+    : { billing: sharedInclusion.inclusion.billing, report: defaultTestInclusion().report };
+  const applyInclusion = (next) => {
+    sharedInclusion.replace(next);
+    setData((d) => ({ ...d, included: next }));
+  };
+  const onToggleTest = (purpose, categoryId) => applyInclusion(toggleTestInclusion(pickerInclusion, purpose, categoryId));
+  const onSetPurpose = (purpose, ids) => applyInclusion(setTestPurpose(pickerInclusion, purpose, ids));
 
   const save = async (status) => {
     setBusy(true);
@@ -84,11 +105,24 @@ export default function ReportEditor({ id, patientId, type: newType }) {
       />
       {locked && <div className="mb-4"><Alert tone="ok">This report is final and locked. An admin can reopen it if a correction is needed.</Alert></div>}
 
-      <fieldset disabled={locked} className="grid gap-6">
+      <fieldset disabled={locked} className="grid min-w-0 gap-6">
         <div className="a-card grid max-w-xs gap-3">
           <Field label="Date of evaluation"><Input type="date" value={date} onChange={setDate} /></Field>
         </div>
-        {type === 'audiology' ? <AudiologyForm data={data} setData={setData} bind={bind} /> : <SpeechLanguageForm bind={bind} />}
+        <Section
+          title="Tests to include"
+          note="Tick Billing to show a test on the bill. Tick Report to show it on the report. A test with no tick stays off that view."
+          testId="test-inclusion-section"
+        >
+          <TestInclusionPicker inclusion={pickerInclusion} onToggle={onToggleTest} onSetPurpose={onSetPurpose} />
+          <div className="mt-4" data-testid="report-view">
+            <p className="text-xs font-semibold uppercase tracking-wider text-clinic-umber">On the report</p>
+            <IncludedTestNames inclusion={pickerInclusion} purpose="report" testId="report-tests" empty="No tests selected for the report." />
+          </div>
+        </Section>
+        {type === 'audiology'
+          ? <AudiologyForm data={data} setData={setData} bind={bind} inclusion={reportInclusion} />
+          : <SpeechLanguageForm bind={bind} inclusion={reportInclusion} />}
       </fieldset>
 
       <div className="no-print sticky bottom-0 mt-6 flex flex-wrap items-center justify-end gap-2 border-t border-clinic-sand bg-clinic-ivory/95 py-3 backdrop-blur">
@@ -111,9 +145,9 @@ export default function ReportEditor({ id, patientId, type: newType }) {
   );
 }
 
-function Section({ title, children, note }) {
+function Section({ title, children, note, testId }) {
   return (
-    <section className="a-card">
+    <section className="a-card min-w-0" data-testid={testId}>
       <h2 className="font-heading text-lg font-semibold text-clinic-maroon">{title}</h2>
       {note && <p className="mt-1 text-xs text-clinic-clay">{note}</p>}
       <div className="mt-4">{children}</div>
@@ -125,7 +159,9 @@ function Cell(props) {
   return <input className="a-cell" value={props.value} onChange={(e) => props.onChange(e.target.value)} inputMode="numeric" aria-label={props.label} />;
 }
 
-function AudiologyForm({ data, setData, bind }) {
+function AudiologyForm({ data, setData, bind, inclusion }) {
+  const show = (section) => sectionOnReport(inclusion, section);
+  const notes = reportNeedsNotes(inclusion);
   const fillImpression = () => {
     let next = data;
     for (const ear of EARS) {
@@ -152,12 +188,12 @@ function AudiologyForm({ data, setData, bind }) {
         </div>
       </Section>
 
-      <Section title="Pure tone audiometry" note='Enter thresholds in dB HL. Type "NR" for no response at the limit, or e.g. "110NR".'>
+      {show('pta') && <Section testId="section-pta" title="Pure tone audiometry" note='Enter thresholds in dB HL. Type "NR" for no response at the limit, or e.g. "110NR".'>
         <div className="grid gap-6 xl:grid-cols-2">
           {EARS.map((ear) => {
             const s = earSummary(data[ear]);
             return (
-              <div key={ear}>
+              <div key={ear} className="min-w-0">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[30rem] text-xs">
                     <thead>
@@ -195,9 +231,9 @@ function AudiologyForm({ data, setData, bind }) {
           })}
         </div>
         <div className="mt-4"><AudiogramKey /></div>
-      </Section>
+      </Section>}
 
-      <Section title="Speech audiometry">
+      {show('speech') && <Section testId="section-speech" title="Speech audiometry">
         <div className="grid gap-3 sm:grid-cols-2">
           {EARS.map((ear) => (
             <div key={ear} className="grid grid-cols-3 gap-2">
@@ -208,16 +244,16 @@ function AudiologyForm({ data, setData, bind }) {
           ))}
         </div>
         <div className="mt-3"><Field label="Speech test material / remarks"><Input {...bind('speech', 'note')} placeholder="e.g. Telugu PB word list, live voice" /></Field></div>
-      </Section>
+      </Section>}
 
-      <Section title="Immittance audiometry" note="Probe tone 226 Hz. Type is suggested from pressure and compliance (Jerger) – you can change it.">
+      {show('impedance') && <Section testId="section-impedance" title="Immittance audiometry" note="Probe tone 226 Hz. Type is suggested from pressure and compliance (Jerger) – you can change it.">
         <div className="grid gap-6 xl:grid-cols-2">
           {EARS.map((ear) => {
             const tymp = data.tymp?.[ear] || {};
             const suggested = tympType(tymp);
             return (
-              <div key={ear}>
-                <div className="grid grid-cols-4 gap-2">
+              <div key={ear} className="min-w-0">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <Field label="Peak (daPa)"><Input {...bind('tymp', ear, 'pressure')} disabled={tymp.noPeak} /></Field>
                   <Field label="SC (ml)"><Input {...bind('tymp', ear, 'compliance')} disabled={tymp.noPeak} /></Field>
                   <Field label="ECV (ml)"><Input {...bind('tymp', ear, 'ecv')} /></Field>
@@ -231,30 +267,36 @@ function AudiologyForm({ data, setData, bind }) {
                 </label>
                 <div className="mx-auto mt-2 max-w-sm"><Tympanogram ear={ear} tymp={tymp} /></div>
                 <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-clinic-umber">Acoustic reflexes – {ear} probe (dB HL, or "Absent")</p>
-                <table className="mt-1 w-full text-xs">
-                  <thead><tr><th /> {REFLEX_FREQS.map((f) => <th key={f} className="text-clinic-clay">{f >= 1000 ? `${f / 1000}k` : f}</th>)}</tr></thead>
-                  <tbody>
-                    {['ipsi', 'contra'].map((k) => (
-                      <tr key={k}>
-                        <td className="pr-2 font-semibold capitalize text-clinic-umber">{k}</td>
-                        {REFLEX_FREQS.map((f) => <td key={f} className="p-0.5"><Cell label={`${ear} ${k} ${f}`} {...bind('reflexes', ear, k, f)} /></td>)}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="mt-1 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead><tr><th /> {REFLEX_FREQS.map((f) => <th key={f} className="text-clinic-clay">{f >= 1000 ? `${f / 1000}k` : f}</th>)}</tr></thead>
+                    <tbody>
+                      {['ipsi', 'contra'].map((k) => (
+                        <tr key={k}>
+                          <td className="pr-2 font-semibold capitalize text-clinic-umber">{k}</td>
+                          {REFLEX_FREQS.map((f) => <td key={f} className="p-0.5"><Cell label={`${ear} ${k} ${f}`} {...bind('reflexes', ear, k, f)} /></td>)}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             );
           })}
         </div>
-      </Section>
+      </Section>}
 
-      <Section title="Other tests">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="OAE – right"><Select {...bind('oae', 'right')} options={[['', 'Not done'], 'Pass', 'Refer']} /></Field>
-          <Field label="OAE – left"><Select {...bind('oae', 'left')} options={[['', 'Not done'], 'Pass', 'Refer']} /></Field>
-        </div>
-        <div className="mt-3"><Field label="Other findings (tuning fork, ABR, tinnitus matching…)"><TextArea {...bind('other_tests')} rows={2} /></Field></div>
-      </Section>
+      {(show('oae') || notes) && (
+        <Section testId="section-other" title="Other tests">
+          {show('oae') && (
+            <div className="grid gap-3 sm:grid-cols-2" data-testid="section-oae">
+              <Field label="OAE – right"><Select {...bind('oae', 'right')} options={[['', 'Not done'], 'Pass', 'Refer']} /></Field>
+              <Field label="OAE – left"><Select {...bind('oae', 'left')} options={[['', 'Not done'], 'Pass', 'Refer']} /></Field>
+            </div>
+          )}
+          {notes && <div className="mt-3"><Field label="Other findings (tuning fork, ABR, tinnitus matching…)"><TextArea {...bind('other_tests')} rows={2} /></Field></div>}
+        </Section>
+      )}
 
       <Section title="Impression & recommendations">
         <button type="button" className="a-btn-secondary mb-3" onClick={fillImpression}><Wand2 className="h-4 w-4" />Suggest impression from results</button>
@@ -285,9 +327,16 @@ export const SLP_SECTIONS = [
   ['prognosis', 'Prognosis', 1],
 ];
 
-function SpeechLanguageForm({ bind }) {
+function SpeechLanguageForm({ bind, inclusion }) {
+  if (inclusion && !sectionOnReport(inclusion, 'speech_language')) {
+    return (
+      <Section title="Findings" testId="section-speech-language">
+        <p className="text-sm text-clinic-clay">No speech-language findings are included on this report.</p>
+      </Section>
+    );
+  }
   return (
-    <Section title="Findings" note="Leave any domain blank if not assessed – blank sections are left out of the printed report.">
+    <Section title="Findings" testId="section-speech-language" note="Leave any domain blank if not assessed – blank sections are left out of the printed report.">
       <div className="grid gap-4 lg:grid-cols-2">
         {SLP_SECTIONS.map(([key, label, rows, placeholder]) => (
           <Field key={key} label={label} className={rows > 2 ? 'lg:col-span-2' : ''}>

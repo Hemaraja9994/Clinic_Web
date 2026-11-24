@@ -261,3 +261,107 @@ export function applyPreset(lines, preset) {
   }
   return CATEGORIES.map(([id]) => map.get(id)).filter(Boolean);
 }
+
+const CATEGORY_IDS = CATEGORIES.map(([id]) => id);
+const DEFAULT_REPORT_IDS = new Set([
+  ...SERVICE_GROUPS[0].ids,
+  'speech_therapy',
+]);
+
+// Billing starts with every service. The report starts with the hearing tests and speech therapy.
+// A test left out of a purpose does not appear on that view.
+export function defaultTestInclusion() {
+  return {
+    billing: [...CATEGORY_IDS],
+    report: CATEGORY_IDS.filter((id) => DEFAULT_REPORT_IDS.has(id)),
+  };
+}
+
+export function normalizeTestInclusion(value) {
+  const known = new Set(CATEGORY_IDS);
+  const pick = (list, fallback) => {
+    if (!Array.isArray(list)) return [...fallback];
+    const chosen = new Set(list.filter((id) => known.has(id)));
+    return CATEGORY_IDS.filter((id) => chosen.has(id));
+  };
+  const source = value && typeof value === 'object' ? value : {};
+  return {
+    billing: pick(source.billing, CATEGORY_IDS),
+    report: pick(source.report, CATEGORY_IDS.filter((id) => DEFAULT_REPORT_IDS.has(id))),
+  };
+}
+
+export function includedIds(inclusion, purpose) {
+  const current = normalizeTestInclusion(inclusion);
+  switch (purpose) {
+    case 'billing':
+      return current.billing;
+    case 'report':
+      return current.report;
+    default: {
+      const unknown = purpose;
+      throw new Error(`Unknown purpose: ${String(unknown)}`);
+    }
+  }
+}
+
+export function toggleTestInclusion(inclusion, purpose, categoryId) {
+  if (!CATEGORY_LABEL[categoryId]) throw new Error('Choose a service from the list.');
+  const current = includedIds(inclusion, purpose);
+  const next = new Set(current);
+  if (next.has(categoryId)) next.delete(categoryId);
+  else next.add(categoryId);
+  return setTestPurpose(inclusion, purpose, [...next]);
+}
+
+export function setTestPurpose(inclusion, purpose, ids) {
+  const current = normalizeTestInclusion(inclusion);
+  const chosen = new Set(Array.isArray(ids) ? ids : []);
+  const nextIds = CATEGORY_IDS.filter((id) => chosen.has(id));
+  switch (purpose) {
+    case 'billing':
+      return { ...current, billing: nextIds };
+    case 'report':
+      return { ...current, report: nextIds };
+    default: {
+      const unknown = purpose;
+      throw new Error(`Unknown purpose: ${String(unknown)}`);
+    }
+  }
+}
+
+export function filterByPurpose(rows, inclusion, purpose) {
+  const allowed = new Set(includedIds(inclusion, purpose));
+  return (rows || []).filter((row) => !CATEGORY_LABEL[row.category] || allowed.has(row.category));
+}
+
+// Clinical report sections that belong to a catalog test. History and impression stay either way.
+const REPORT_SECTION_TESTS = {
+  pta: ['pta', 'pta_impedance', 'pta_impedance_tinnitus'],
+  speech: ['pta', 'pta_impedance', 'pta_impedance_tinnitus'],
+  impedance: ['impedance', 'pta_impedance', 'pta_impedance_tinnitus'],
+  oae: ['oae', 'bera_oae'],
+  bera: ['bera', 'bera_oae'],
+  tinnitus: ['tinnitus_evaluation', 'pta_impedance_tinnitus'],
+  speech_language: ['speech_therapy'],
+};
+
+export function sectionOnReport(inclusion, section) {
+  if (!inclusion) return true;
+  const tests = REPORT_SECTION_TESTS[section];
+  if (!tests) return true;
+  const selected = new Set(includedIds(inclusion, 'report'));
+  return tests.some((id) => selected.has(id));
+}
+
+const REPORT_NOTE_TESTS = [
+  'bera', 'bera_oae', 'tinnitus_evaluation', 'pta_impedance_tinnitus', 'other',
+  'hearing_aids', 'hearing_aid_advance', 'ha_repair', 'batteries', 'moulds',
+  'receivers', 'shell_receivers', 'huggies', 'ear_tips', 'domes',
+];
+
+export function reportNeedsNotes(inclusion) {
+  if (!inclusion) return true;
+  const selected = new Set(includedIds(inclusion, 'report'));
+  return REPORT_NOTE_TESTS.some((id) => selected.has(id));
+}

@@ -2,15 +2,24 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  CATEGORIES,
   CATEGORY_LABEL,
   SERVICE_PRESETS,
   SRI_RUDRA_CLINIC,
   applyPreset,
   buildCollectionRows,
   collectionsToCsv,
+  defaultTestInclusion,
+  filterByPurpose,
   filterCollections,
+  includedIds,
   mergeDeskBackup,
   normalizePhone,
+  normalizeTestInclusion,
+  reportNeedsNotes,
+  sectionOnReport,
+  setTestPurpose,
+  toggleTestInclusion,
 } from './collectionCatalog.js';
 
 const base = {
@@ -121,4 +130,53 @@ test('Sri Rudra MVP details are the seeded clinic', () => {
   assert.match(SRI_RUDRA_CLINIC.name, /MVP Double Road/);
   assert.equal(SRI_RUDRA_CLINIC.phones.length, 3);
   assert.match(SRI_RUDRA_CLINIC.address, /Visakhapatnam/);
+});
+
+test('billing starts with every service and the report starts with hearing tests', () => {
+  const inclusion = defaultTestInclusion();
+  assert.deepEqual(inclusion.billing, CATEGORIES.map(([id]) => id));
+  assert.ok(inclusion.report.includes('pta'));
+  assert.ok(inclusion.report.includes('impedance'));
+  assert.ok(inclusion.report.includes('speech_therapy'));
+  assert.equal(inclusion.report.includes('batteries'), false);
+  assert.equal(inclusion.report.includes('huggies'), false);
+});
+
+test('a test left off billing stays off the bill and on the report', () => {
+  const inclusion = toggleTestInclusion(defaultTestInclusion(), 'billing', 'bera');
+  const rows = [
+    { category: 'pta', amount: 300 },
+    { category: 'bera', amount: 1500 },
+    { category: 'legacy-unknown', amount: 10 },
+  ];
+  assert.deepEqual(filterByPurpose(rows, inclusion, 'billing').map((row) => row.category), ['pta', 'legacy-unknown']);
+  assert.deepEqual(filterByPurpose(rows, inclusion, 'report').map((row) => row.category), ['pta', 'bera', 'legacy-unknown']);
+  assert.equal(sectionOnReport(inclusion, 'pta'), true);
+  assert.equal(sectionOnReport(inclusion, 'bera'), true);
+});
+
+test('report sections follow the tests ticked for the report', () => {
+  let inclusion = setTestPurpose(defaultTestInclusion(), 'report', ['pta', 'oae']);
+  assert.equal(sectionOnReport(inclusion, 'pta'), true);
+  assert.equal(sectionOnReport(inclusion, 'speech'), true);
+  assert.equal(sectionOnReport(inclusion, 'impedance'), false);
+  assert.equal(sectionOnReport(inclusion, 'oae'), true);
+  assert.equal(sectionOnReport(inclusion, 'bera'), false);
+  assert.equal(sectionOnReport(inclusion, 'tinnitus'), false);
+  assert.equal(sectionOnReport(null, 'impedance'), true);
+  inclusion = setTestPurpose(inclusion, 'report', ['impedance', 'tinnitus_evaluation', 'batteries']);
+  assert.equal(sectionOnReport(inclusion, 'impedance'), true);
+  assert.equal(sectionOnReport(inclusion, 'tinnitus'), true);
+  assert.equal(sectionOnReport(inclusion, 'pta'), false);
+  assert.equal(reportNeedsNotes(inclusion), true);
+  assert.equal(reportNeedsNotes(setTestPurpose(inclusion, 'report', ['pta'])), false);
+  assert.deepEqual(includedIds(inclusion, 'report'), ['impedance', 'tinnitus_evaluation', 'batteries']);
+});
+
+test('unknown purpose and unknown test are refused', () => {
+  assert.throws(() => includedIds(defaultTestInclusion(), 'invoice'), /Unknown purpose/);
+  assert.throws(() => toggleTestInclusion(defaultTestInclusion(), 'report', 'not-a-test'), /list/);
+  const messy = normalizeTestInclusion({ billing: ['pta', 'nope', 'pta'], report: 'all' });
+  assert.deepEqual(messy.billing, ['pta']);
+  assert.deepEqual(messy.report, defaultTestInclusion().report);
 });

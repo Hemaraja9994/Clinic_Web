@@ -2,7 +2,7 @@
 // Symbols follow ASHA (1990) conventions: right ear red, left ear blue.
 
 import React from 'react';
-import { AC_FREQS, BC_FREQS, parseThreshold } from '../clinical.js';
+import { AC_FREQS, BC_FREQS, TYMP_C_MAX, parseThreshold, tympX, tympY } from '../clinical.js';
 
 const RED = '#c0262d';
 const BLUE = '#1f4fb3';
@@ -116,16 +116,18 @@ export function AudiogramKey() {
 }
 
 // Tympanogram drawn as a smooth peak at the recorded pressure and compliance (flat for type B).
+// X axis matches a clinical printout: +200 daPa at the left, −400 daPa at the right.
+// Y axis is compliance (ml), 0 at the bottom, the same unit as the SC field.
 export function Tympanogram({ ear, tymp = {} }) {
   const color = ear === 'right' ? RED : BLUE;
-  const w = 300;
-  const h = 190;
-  const pad = { left: 36, right: 10, top: 22, bottom: 30 };
+  const w = 320;
+  const h = 200;
+  const pad = { left: 78, right: 12, top: 22, bottom: 32 };
   const P_MIN = -400;
   const P_MAX = 200;
-  const C_MAX = 2;
-  const x = (p) => pad.left + ((p - P_MIN) / (P_MAX - P_MIN)) * (w - pad.left - pad.right);
-  const y = (c) => pad.top + (1 - Math.min(c, C_MAX) / C_MAX) * (h - pad.top - pad.bottom);
+  const plot = { left: pad.left, width: w - pad.left - pad.right, top: pad.top, height: h - pad.top - pad.bottom, max: TYMP_C_MAX };
+  const x = (p) => tympX(p, plot);
+  const y = (c) => tympY(c, plot);
 
   const peakP = Number(tymp.pressure);
   const peakC = Number(tymp.compliance);
@@ -145,9 +147,9 @@ export function Tympanogram({ ear, tymp = {} }) {
       <text x={w / 2} y={12} textAnchor="middle" fontSize="11" fontWeight="700" fill={color} letterSpacing="2">
         {ear === 'right' ? 'RIGHT EAR' : 'LEFT EAR'}
       </text>
-      {/* normal region for type A */}
-      <rect x={x(-100)} y={y(1.6)} width={x(50) - x(-100)} height={y(0.3) - y(1.6)} fill="#f3ece2" />
-      {[-400, -300, -200, -100, 0, 100, 200].map((p) => (
+      {/* normal region for type A: −100 to +50 daPa, 0.3–1.6 ml */}
+      <rect x={Math.min(x(-100), x(50))} y={y(1.6)} width={Math.abs(x(50) - x(-100))} height={y(0.3) - y(1.6)} fill="#f3ece2" />
+      {[200, 100, 0, -100, -200, -300, -400].map((p) => (
         <g key={p}>
           <line x1={x(p)} x2={x(p)} y1={pad.top} y2={h - pad.bottom} stroke={GRID} strokeWidth={p === 0 ? 1.2 : 0.6} />
           <text x={x(p)} y={h - pad.bottom + 12} textAnchor="middle" fontSize="8.5" fill={INK}>{p}</text>
@@ -159,8 +161,8 @@ export function Tympanogram({ ear, tymp = {} }) {
           <text x={pad.left - 5} y={y(c) + 3} textAnchor="end" fontSize="8.5" fill={INK}>{c}</text>
         </g>
       ))}
-      <text x={(pad.left + w) / 2} y={h - 4} textAnchor="middle" fontSize="8.5" fill={INK} letterSpacing="1">PRESSURE (daPa)</text>
-      <text transform={`translate(9 ${(pad.top + h - pad.bottom) / 2}) rotate(-90)`} textAnchor="middle" fontSize="8.5" fill={INK}>ml</text>
+      <text data-testid="tymp-x-axis" x={(pad.left + w) / 2} y={h - 4} textAnchor="middle" fontSize="8.5" fill={INK} letterSpacing="1">PRESSURE (daPa)</text>
+      <text data-testid="tymp-y-axis" transform={`translate(22 ${(pad.top + h - pad.bottom) / 2}) rotate(-90)`} textAnchor="middle" fontSize="8" fill={INK}>COMPLIANCE (ml)</text>
       {path && <path d={path} stroke={color} strokeWidth={1.8} fill="none" />}
       {!hasData && <text x={w / 2} y={h / 2} textAnchor="middle" fontSize="10" fill="#9a8a7c">Not recorded</text>}
     </svg>
